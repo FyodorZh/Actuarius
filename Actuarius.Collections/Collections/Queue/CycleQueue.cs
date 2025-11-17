@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Diagnostics.CodeAnalysis;
 
-namespace Fundamentum.Collections
+namespace Actuarius.Collections
 {
     public class CycleQueue<T> : IQueue<T>, IArray<T>
     {

@@ -8,8 +8,8 @@
         <Authors>Fyodor Zhmaev</Authors>
         <Description>Collections library</Description>
         <Copyright>Copyright (c) Fyodor Zhmaev 2025</Copyright>
-        <PackageProjectUrl>https://github.com/FyodorZh/Fundamentum</PackageProjectUrl>
-        <RepositoryUrl>https://github.com/FyodorZh/Fundamentum.git</RepositoryUrl>
+        <PackageProjectUrl>https://github.com/FyodorZh/Actuarius</PackageProjectUrl>
+        <RepositoryUrl>https://github.com/FyodorZh/Actuarius.git</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <TargetFrameworks>netstandard2.1;netstandard2.0</TargetFrameworks>
     </PropertyGroup>

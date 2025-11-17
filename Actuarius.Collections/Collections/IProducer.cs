@@ -1,6 +1,6 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 
-namespace Fundamentum.Collections
+namespace Actuarius.Collections
 {
     /// <summary>
     /// Источник данных

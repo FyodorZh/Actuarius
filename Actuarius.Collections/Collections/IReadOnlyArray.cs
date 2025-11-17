@@ -1,4 +1,4 @@
-﻿namespace Fundamentum.Collections
+﻿namespace Actuarius.Collections
 {
     public interface IReadOnlyArray<out TData> : ICountable
     {

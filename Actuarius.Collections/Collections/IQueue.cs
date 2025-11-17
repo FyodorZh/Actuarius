@@ -1,4 +1,4 @@
-﻿namespace Fundamentum.Collections
+﻿namespace Actuarius.Collections
 {
     /// <summary>
     /// Элементы изымаются в порядке добавления

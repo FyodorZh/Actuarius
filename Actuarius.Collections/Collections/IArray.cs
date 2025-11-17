@@ -1,4 +1,4 @@
-﻿namespace Fundamentum.Collections
+﻿namespace Actuarius.Collections
 {
     public interface IArray<TData> : IReadOnlyArray<TData>
     {

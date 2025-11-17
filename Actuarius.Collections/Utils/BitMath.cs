@@ -1,4 +1,4 @@
-﻿namespace Fundamentum
+﻿namespace Actuarius
 {
     public static class BitMath
     {
