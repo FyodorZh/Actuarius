@@ -3,7 +3,7 @@
     <PropertyGroup>
         <LangVersion>9</LangVersion>
         <Nullable>enable</Nullable>
-        <Version>0.1.1-dev.1</Version>
+        <Version>0.1.0-dev.1</Version>
         <Title>Actuarius.Collections</Title>
         <Authors>Fyodor Zhmaev</Authors>
         <Description>Collections library</Description>
@@ -11,7 +11,14 @@
         <PackageProjectUrl>https://github.com/FyodorZh/Actuarius</PackageProjectUrl>
         <RepositoryUrl>https://github.com/FyodorZh/Actuarius.git</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
+        <PackageReadmeFile>nuget.readme.md</PackageReadmeFile>
+        <PackageLicenseFile>LICENSE</PackageLicenseFile>
         <TargetFrameworks>netstandard2.1;netstandard2.0</TargetFrameworks>
+    </PropertyGroup>
+
+    <PropertyGroup>
+        <IncludeSymbols>true</IncludeSymbols>
+        <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     </PropertyGroup>
 
     <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
@@ -21,5 +28,10 @@
     <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
       <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     </PropertyGroup>
+    
+    <ItemGroup>
+        <None Include="nuget.readme.md" Pack="true" PackagePath="\" />
+        <None Include="..\LICENSE" Pack="true" PackagePath="\" />
+    </ItemGroup>
 
 </Project>
