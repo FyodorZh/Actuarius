@@ -101,5 +101,10 @@ namespace Actuarius.Memory.Internal
                 }
             }
         }
+
+        public override string ToString()
+        {
+            return "RefCount:" + _refCount;
+        }
     }
 }
