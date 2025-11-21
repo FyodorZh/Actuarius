@@ -3,38 +3,25 @@ using Actuarius.Collections;
 
 namespace Actuarius.Memory
 {
-    public class DelegatePool<TObject> : IPool<TObject>
-        where TObject : class
+    public class DelegatePool<TResource> : Pool<TResource>
+        where TResource : class
     {
-        private readonly Func<TObject> _ctor;
-        private readonly IUnorderedCollection<TObject> _pool;
-
-        public DelegatePool(Func<TObject> ctor)
-            : this(ctor, new CycleQueue<TObject>())
+        private readonly Func<TResource> _ctor;
+        
+        public DelegatePool(Func<TResource> resourceCtor)
+            : this(resourceCtor, new CycleQueue<TResource>())
         {
         }
 
-        public DelegatePool(Func<TObject> ctor, IUnorderedCollection<TObject> pool)
+        public DelegatePool(Func<TResource> resourceCtor, IUnorderedCollection<TResource> pool)
+            :base(pool)
         {
-            _ctor = ctor;
-            _pool = pool;
+            _ctor = resourceCtor;
         }
 
-        public void Release(TObject? obj)
+        protected override TResource Constructor()
         {
-            if (obj != null)
-            {
-                _pool.Put(obj);
-            }
-        }
-
-        public TObject Acquire()
-        {
-            if (_pool.TryPop(out var obj))
-            {
-                return obj;
-            }
-            return _ctor.Invoke();
+            return _ctor();
         }
     }
 }

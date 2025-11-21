@@ -24,6 +24,11 @@ namespace Actuarius.Memory
             return new ReleasableResourceAccessor<TResource>(Resource, this.Acquire());
         }
 
+        public TResource ShowUnsafe()
+        {
+            return _resource ?? throw new NullReferenceException($"{GetType()}: access after final release");
+        }
+
         protected override void OnReleased()
         {
             var resource = Interlocked.Exchange(ref _resource, null);

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 
 namespace Actuarius.Collections
 {
@@ -26,7 +27,7 @@ namespace Actuarius.Collections
             return mDictionary.Remove(key);
         }
 
-        public bool TryGetValue(TKey key, out TData element)
+        public bool TryGetValue(TKey key,[MaybeNullWhen(false)] out TData element)
         {
             return mDictionary.TryGetValue(key, out element);
         }

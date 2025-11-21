@@ -4,5 +4,6 @@ namespace Actuarius.Memory
         where TResource : class
     {
         ReleasableResourceAccessor<TResource> GetAccessor();
+        TResource ShowUnsafe();
     }
 }
