@@ -25,7 +25,7 @@ namespace Actuarius.Memory
 
     public static class IReadOnlyBytes_Ext
     {
-        public static byte[]? ToArray(this IReadOnlyBytes self, IPool<byte[], int>? pool)
+        public static byte[]? ToArray(this IReadOnlyBytes self, IPool<byte[], int>? pool = null)
         {
             if (!self.IsValid)
             {

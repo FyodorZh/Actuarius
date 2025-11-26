@@ -25,11 +25,16 @@ namespace Actuarius.Memory
         
         public int Offset => _offset;
 
-        public virtual bool IsValid => _array != null;
+        public virtual bool IsValid => _array != null!;
 
-        public bool CopyTo(byte[] dst, int dstOffset, int srcOffset, int count)
+        public virtual bool CopyTo(byte[] dst, int dstOffset, int srcOffset, int count)
         {
-            Buffer.BlockCopy(_array, _offset, dst, dstOffset, count);
+            if (_array == null! || dst == null! || srcOffset < 0 || 
+                !ArrayHelper.CheckFromTo(_offset + _count, _offset + srcOffset, dst.Length, dstOffset, count))
+            {
+                return false;
+            }
+            Buffer.BlockCopy(_array, _offset + srcOffset, dst, dstOffset, count);
             return true;
         }
 

@@ -14,5 +14,10 @@ namespace Actuarius.Memory
             : base(null!, 0, 0)
         {
         }
+
+        public override bool CopyTo(byte[] dst, int dstOffset, int srcOffset, int count)
+        {
+            return false;
+        }
     }
 }
