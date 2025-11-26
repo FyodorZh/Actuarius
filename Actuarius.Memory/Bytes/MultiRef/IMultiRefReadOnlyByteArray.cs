@@ -1,6 +1,6 @@
 ﻿namespace Actuarius.Memory
 {
-    public interface IMultiRefReadOnlyByteArray : IMultiRefResourceOwner<IReadOnlyByteArray>, IReadOnlyByteArray
+    public interface IMultiRefReadOnlyByteArray : IMultiRefReadOnlyBytes, IMultiRefResourceOwner<IReadOnlyByteArray>, IReadOnlyByteArray
     {
     }
 }

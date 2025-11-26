@@ -13,8 +13,12 @@ namespace Actuarius.Collections
         {
             try
             {
-                mDictionary.Add(key, element);
-                return true;
+                if (!mDictionary.ContainsKey(key))
+                {
+                    mDictionary.Add(key, element);
+                    return true;
+                }
+                return false;
             }
             catch
             {

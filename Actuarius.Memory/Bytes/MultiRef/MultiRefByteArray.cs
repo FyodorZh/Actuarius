@@ -21,10 +21,6 @@ namespace Actuarius.Memory
             _array = null!;
         }
 
-        public IByteArray ShowResourceUnsafe() => this;
-        IReadOnlyByteArray IMultiRefResourceOwner<IReadOnlyByteArray>.ShowResourceUnsafe() => this;
-        IReadOnlyBytes IMultiRefResourceOwner<IReadOnlyBytes>.ShowResourceUnsafe() => this;
-
         public int Count => _count;
         
         public int Offset => _offset;
@@ -46,5 +42,20 @@ namespace Actuarius.Memory
         public byte[] ReadOnlyArray => _array;
 
         public byte[] Array => _array;
+        
+        public IReadOnlyBytes ShowResourceUnsafe(out IReadOnlyBytes resource)
+        {
+            return resource = this;
+        }
+
+        public IReadOnlyByteArray ShowResourceUnsafe(out IReadOnlyByteArray resource)
+        {
+            return resource = this;
+        }
+
+        public IByteArray ShowResourceUnsafe(out IByteArray resource)
+        {
+            return resource = this;
+        }
     }
 }

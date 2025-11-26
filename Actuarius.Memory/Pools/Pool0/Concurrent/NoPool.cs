@@ -1,6 +1,6 @@
 ﻿namespace Actuarius.Memory
 {
-    public class NoPool<TObject> : IPool<TObject>
+    public class NoPool<TObject> : IConcurrentPool<TObject>
         where TObject : class, new()
     {
         public static readonly NoPool<TObject> Instance = new NoPool<TObject>();

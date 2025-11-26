@@ -36,5 +36,10 @@ namespace Actuarius.Memory
                 _poolSink.Release(resource);
             }
         }
+
+        public TResource ShowResourceUnsafe(out TResource resource)
+        {
+            return resource = Resource;
+        }
     }
 }

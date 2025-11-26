@@ -1,9 +1,9 @@
 namespace Actuarius.Memory
 {
-    public interface IMultiRefResourceOwner<out TResource> : IMultiRefResource
+    public interface IMultiRefResourceOwner<TResource> : IMultiRefResource
         where TResource : class
     {
-        TResource ShowResourceUnsafe();
+        TResource ShowResourceUnsafe(out TResource resource);
     }
 
     public static class IMultiRefResourceOwner_Ext
@@ -11,7 +11,8 @@ namespace Actuarius.Memory
         public static ReleasableResourceAccessor<TResource> ExposeAccessorOnce<TResource>(this IMultiRefResourceOwner<TResource> owner)
             where TResource : class
         {
-            return new ReleasableResourceAccessor<TResource>(owner.ShowResourceUnsafe(), owner.Acquire());
+            owner.ShowResourceUnsafe(out var resource);
+            return new ReleasableResourceAccessor<TResource>(resource, owner.Acquire());
         }
     }
 }
