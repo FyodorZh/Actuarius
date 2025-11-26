@@ -4,17 +4,31 @@ namespace Actuarius.Memory
 {
     public class RawByteArrayConcurrentPool : ConcurrentPool<byte[], int>
     {
-        private readonly int _bucketCapacity;
+        public delegate int ArrayPoolCapacityDelegate(int arraySize);
+        
+        private readonly ArrayPoolCapacityDelegate _capacityDelegate;
+
 
         public RawByteArrayConcurrentPool(int bucketCapacity)
+            : this(_ => bucketCapacity)
+        {
+        }
+        
+        public RawByteArrayConcurrentPool(ArrayPoolCapacityDelegate capacityDelegate)
             : base(new SynchronizedConcurrentDictionary<int, IConcurrentPool<byte[]>>())
         {
-            _bucketCapacity = bucketCapacity;
+            _capacityDelegate = capacityDelegate;
         }
 
         protected override IConcurrentPool<byte[]> CreatePool(int classId)
         {
-            return new FixedLengthRawByteArrayConcurrentPool(classId, _bucketCapacity);
+            int capacity = _capacityDelegate(classId);
+            if (capacity > 0)
+            {
+                return new FixedLengthRawByteArrayConcurrentPool(classId, capacity);
+            }
+
+            return new DelegateNoPool<byte[]>(() => new byte[classId]);
         }
 
         protected sealed override int Classify(int param)

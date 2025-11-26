@@ -1,17 +1,18 @@
 ﻿namespace Actuarius.Memory
 {
-    public class NoPool<TObject> : IConcurrentPool<TObject>
-        where TObject : class, new()
+    public class NoPool<TResource> : IConcurrentPool<TResource>
+        where TResource : class, new()
     {
-        public static readonly NoPool<TObject> Instance = new NoPool<TObject>();
+        public static readonly NoPool<TResource> Instance = new NoPool<TResource>();
         
-        public TObject Acquire()
+        public TResource Acquire()
         {
-            return new TObject();
+            return new TResource();
         }
         
-        public void Release(TObject? obj)
+        public void Release(TResource? obj)
         {
+            // DO NOTHING
         }
     }
 }
