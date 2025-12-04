@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Collections;
+using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using Actuarius.Collections.Internal;
 
@@ -164,7 +166,7 @@ namespace Actuarius.Collections
             return new EnumerableWithOrder(this, order);
         }
 
-        public readonly struct EnumerableWithOrder
+        public readonly struct EnumerableWithOrder : IEnumerable<T>
         {
             private readonly CycleQueue<T> _queue;
             private readonly QueueEnumerationOrder _order;
@@ -179,9 +181,19 @@ namespace Actuarius.Collections
             {
                 return new Enumerator(_queue, _order);
             }
+            
+            IEnumerator<T> IEnumerable<T>.GetEnumerator()
+            {
+                return GetEnumerator();
+            }
+
+            IEnumerator IEnumerable.GetEnumerator()
+            {
+                return GetEnumerator();
+            }
         }
 
-        public struct Enumerator
+        public struct Enumerator : IEnumerator<T>
         {
             private readonly CycleQueue<T> _queue;
             private readonly QueueEnumerationOrder _order;
@@ -243,6 +255,13 @@ namespace Actuarius.Collections
                         return false;
                 }
             }
+
+            public void Reset()
+            {
+                SetIndices();
+            }
+
+            object? IEnumerator.Current => Current;
 
             public T Current => _queue._data[_current & _queue._capacityMask];
         }
