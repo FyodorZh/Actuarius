@@ -2,33 +2,32 @@ using Actuarius.Collections;
 
 namespace Actuarius.Memory
 {
-    public class RawByteArrayConcurrentPool : ConcurrentPool<byte[], int>
+    public class RawArrayConcurrentPool<T> : ConcurrentPool<T[], int>
     {
         public delegate int ArrayPoolCapacityDelegate(int arraySize);
         
         private readonly ArrayPoolCapacityDelegate _capacityDelegate;
 
-
-        public RawByteArrayConcurrentPool(int bucketCapacity)
+        public RawArrayConcurrentPool(int bucketCapacity)
             : this(_ => bucketCapacity)
         {
         }
         
-        public RawByteArrayConcurrentPool(ArrayPoolCapacityDelegate capacityDelegate)
-            : base(new SynchronizedConcurrentDictionary<int, IConcurrentPool<byte[]>>())
+        public RawArrayConcurrentPool(ArrayPoolCapacityDelegate capacityDelegate)
+            : base(new SynchronizedConcurrentDictionary<int, IConcurrentPool<T[]>>())
         {
             _capacityDelegate = capacityDelegate;
         }
 
-        protected override IConcurrentPool<byte[]> CreatePool(int classId)
+        protected override IConcurrentPool<T[]> CreatePool(int classId)
         {
             int capacity = _capacityDelegate(classId);
             if (capacity > 0)
             {
-                return new FixedLengthRawByteArrayConcurrentPool(classId, capacity);
+                return new FixedLengthRawArrayConcurrentPool<T>(classId, capacity);
             }
 
-            return new DelegateNoPool<byte[]>(() => new byte[classId]);
+            return new DelegateNoPool<T[]>(() => new T[classId]);
         }
 
         protected sealed override int Classify(int param)
@@ -36,7 +35,7 @@ namespace Actuarius.Memory
             return BitMath.NextPow2((uint)param);
         }
 
-        protected sealed override int Classify(byte[] array)
+        protected sealed override int Classify(T[] array)
         {
             return array.Length;
         }

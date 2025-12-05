@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Runtime.CompilerServices;
 using System.Threading;
 
 namespace Actuarius.Memory
@@ -16,16 +17,11 @@ namespace Actuarius.Memory
 
         private TResource Resource => _resource ?? throw new Exception($"{GetType()}: access after final release");
 
-        public PoolableResourceOwner(TResource resource, IPoolSink<TResource> poolSink) 
+        public PoolableResourceOwner(TResource resource, IPoolSink<TResource> poolSink)
             : base(false)
         {
             _poolSink = poolSink;
             _resource = resource;
-        }
-        
-        public TResource ShowResourceUnsafe()
-        {
-            return _resource ?? throw new NullReferenceException($"{GetType()}: access after final release");
         }
 
         protected override void OnReleased()
@@ -37,9 +33,18 @@ namespace Actuarius.Memory
             }
         }
 
-        public TResource ShowResourceUnsafe(out TResource resource)
+        public TResource ExposeResourceUnsafe(out TResource resource)
         {
             return resource = Resource;
+        }
+    }
+
+    public static class PoolableResourceOwner_Ext
+    {
+        public static IMultiRefResourceOwner<TResource> AsOwner<TResource>(this (TResource resource, IPoolSink<TResource> poolSink) self)
+            where TResource : class
+        {
+            return new PoolableResourceOwner<TResource>(self.resource, self.poolSink);
         }
     }
 }

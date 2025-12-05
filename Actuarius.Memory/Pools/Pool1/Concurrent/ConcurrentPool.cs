@@ -48,17 +48,22 @@ namespace Actuarius.Memory
             return subPool.Acquire();
         }
         
-        public (TResource resource, IConcurrentPool<TResource> subPool) AcquireEx(TParam param)
+        public (TResource resource, IPoolSink<TResource> poolSink) AcquireEx(TParam param)
         {
             int classId = Classify(param);
+            
 
-            if (!_table.TryGetValue(classId, out var subPool))
+            if (!_table.TryGetValue(classId, out var pool))
             {
-                subPool = CreatePool(classId);
-                _table.Add(classId, subPool);
+                var newPool = CreatePool(classId);
+                if (!_table.AddOrGet(classId, newPool, out var addedPool))
+                {
+                    return (newPool.Acquire(), newPool); 
+                }
+                pool = addedPool;
             }
 
-            return (subPool.Acquire(), subPool);
+            return (pool.Acquire(), pool);
         }
     }
 }

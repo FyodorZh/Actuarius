@@ -29,9 +29,9 @@ namespace Actuarius.Memory
             int typeId = TypeMap<TResource>.TypeId;
             _constructors[typeId] ??= () => new TResource();
             
-            (object res, IConcurrentPool<object> pool) = _pool.AcquireEx(typeId);
+            (object res, IPoolSink<object> poolSink) = _pool.AcquireEx(typeId);
             var resource = (TResource)res;
-            resource.Restored(pool);
+            resource.Restored(poolSink);
             return resource;
         }
 

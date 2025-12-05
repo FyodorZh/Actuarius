@@ -1,10 +1,11 @@
-﻿using Actuarius.Collections;
+﻿using System;
+using Actuarius.Collections;
 
 namespace Actuarius.Memory
 {
     public interface IMemoryRental
     {
-        IConcurrentPool<byte[], int> BytesPool { get; }
+        IGenericConcurrentPool<Array, int> ArrayPool { get; }
         IConcurrentPool<IMultiRefByteArray, int> ByteArraysPool { get; }
         ICollectablePool CollectablePool { get; }
         IGenericConcurrentPool SmallObjectsPool { get; }
@@ -15,44 +16,54 @@ namespace Actuarius.Memory
     {
         public static readonly IMemoryRental Shared = new MemoryRental();
         
-        public IConcurrentPool<byte[], int> BytesPool { get; }
+        public IGenericConcurrentPool<Array, int> ArrayPool { get; }
+            
         public IConcurrentPool<IMultiRefByteArray, int> ByteArraysPool { get; }
         public ICollectablePool CollectablePool { get; }
 
         public IGenericConcurrentPool SmallObjectsPool { get; }
         public IGenericConcurrentPool BigObjectsPool { get; }
 
+        private class ArrayPoolCtor : IGenericConstructor<IPoolRef>
+        {
+            T IGenericConstructor<IPoolRef>.Construct<T>()
+            {
+                return (T)(IPoolRef)new RawArrayConcurrentPool<T>(size =>
+                {
+                    if (size <= 1024)
+                    {
+                        return 1000;
+                    }
+
+                    if (size <= 1024 * 10)
+                    {
+                        return 100;
+                    }
+
+                    if (size <= 1024 * 128)
+                    {
+                        return 10;
+                    }
+
+                    if (size <= 1024 * 1024)
+                    {
+                        return 1;
+                    }
+
+                    return 0;
+                });
+            }
+        }
+
         public MemoryRental()
         {
-            BytesPool = new RawByteArrayConcurrentPool(size =>
-            {
-                if (size <= 1024)
-                {
-                    return 1000;
-                }
-
-                if (size <= 1024 * 10)
-                {
-                    return 100;
-                }
-
-                if (size <= 1024 * 128)
-                {
-                    return 10;
-                }
-
-                if (size <= 1024 * 1024)
-                {
-                    return 1;
-                }
-
-                return 0;
-            });
-            ByteArraysPool = new ByteArrayConcurrentPool(BytesPool);
+            ArrayPool = new GenericConcurrentPool<Array, int>(new SynchronizedConcurrentDictionary<int, IPoolRef>(), new ArrayPoolCtor());
+            
+            ByteArraysPool = new ByteArrayConcurrentPool(ArrayPool.ShowTypedPool<byte[]>());
             CollectablePool = new CollectablePool(() => new LimitedConcurrentQueue<object>(100));
 
-            SmallObjectsPool = new GenericConcurrentPool(1000, 100, 10);
-            BigObjectsPool = new GenericConcurrentPool(1000, 10, 2);
+            SmallObjectsPool = new GenericConcurrentPool(new SynchronizedConcurrentDictionary<int, object>(), 100, 10);
+            BigObjectsPool = new GenericConcurrentPool(new SynchronizedConcurrentDictionary<int, object>(), 10, 2);
         }
     }
 }

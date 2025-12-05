@@ -1,6 +1,8 @@
 namespace Actuarius.Memory
 {
-    public interface IPoolSink<in TResource>
+    public interface IPoolRef {}
+    
+    public interface IPoolSink<in TResource> : IPoolRef
     {
         /// <summary>
         /// Вернуть объект в пул.

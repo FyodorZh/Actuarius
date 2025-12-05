@@ -28,9 +28,9 @@ namespace Actuarius.Memory
             return _classifyByResource(resource);
         }
         
-        protected override int Classify(TParam1 param1)
+        protected override int Classify(TParam1 param0)
         {
-            return _classifyByParameter(param1);
+            return _classifyByParameter(param0);
         }
     }
 }

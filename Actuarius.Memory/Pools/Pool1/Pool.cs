@@ -2,7 +2,7 @@ using Actuarius.Collections;
 
 namespace Actuarius.Memory
 {
-    public abstract class Pool<TResource, TParam1> : IPool<TResource, TParam1>
+    public abstract class Pool<TResource, TParam0> : IPool<TResource, TParam0>
         where TResource : class
     {
         private readonly IMap<int, IPool<TResource>> _table;
@@ -11,7 +11,7 @@ namespace Actuarius.Memory
         
         protected abstract int Classify(TResource resource);
         
-        protected abstract  int Classify(TParam1 param1);
+        protected abstract  int Classify(TParam0 param0);
 
         protected Pool(IMap<int, IPool<TResource>> table)
         {
@@ -35,9 +35,9 @@ namespace Actuarius.Memory
             }
         }
 
-        public TResource Acquire(TParam1 param1)
+        public TResource Acquire(TParam0 param0)
         {
-            int classId = Classify(param1);
+            int classId = Classify(param0);
 
             if (!_table.TryGetValue(classId, out var subPool))
             {
@@ -46,6 +46,19 @@ namespace Actuarius.Memory
             }
 
             return subPool.Acquire();
+        }
+
+        public (TResource resource, IPoolSink<TResource> poolSink) AcquireEx(TParam0 param0)
+        {
+            int classId = Classify(param0);
+
+            if (!_table.TryGetValue(classId, out var subPool))
+            {
+                subPool = CreatePool(classId);
+                _table.Add(classId, subPool);
+            }
+
+            return (subPool.Acquire(), subPool);
         }
     }
 }
