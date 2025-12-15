@@ -2,12 +2,12 @@
 
 namespace Actuarius.Memory
 {
-    public class ByteSourceFromStream : MultiRefCollectableResource<ByteSourceFromStream>, IByteSource
+    public struct ByteSourceFromStream : IByteSource
     {
-        private Stream _stream = null!;
+        private readonly Stream _stream;
         private int _countToRead;
         
-        public void Reset(Stream stream, int countToRead = -1)
+        public ByteSourceFromStream(Stream stream, int countToRead = -1)
         {
             _stream = stream;
             _countToRead = countToRead < 0 ? (int)(stream.Length - stream.Position) : countToRead;
@@ -30,23 +30,12 @@ namespace Actuarius.Memory
         {
             if (_countToRead >= dst.Count)
             {
-                _stream.Read(dst.Array, dst.Offset, dst.Count);
-                _countToRead -= dst.Count;
-                return true;
+                int actual = _stream.Read(dst.Array, dst.Offset, dst.Count);
+                _countToRead -= actual;
+                return actual == dst.Count;
             }
 
             return false;
-        }
-
-        protected override void OnCollected()
-        {
-            _stream = null!;
-            _countToRead = 0;
-        }
-
-        protected override void OnRestored()
-        {
-            // DO NOTHING
         }
     }
 }

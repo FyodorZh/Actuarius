@@ -47,7 +47,7 @@ namespace Actuarius.Memory
         public byte[] ReadOnlyArray => _array;
 
         public byte[] Array => _array;
-        
+
         public IReadOnlyBytes ExposeResourceUnsafe(out IReadOnlyBytes resource)
         {
             return resource = this;

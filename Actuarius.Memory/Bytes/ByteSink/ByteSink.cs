@@ -1,14 +1,20 @@
-﻿namespace Actuarius.Memory
+namespace Actuarius.Memory
 {
-    public class ByteSinkFromArray : MultiRefCollectableResource<ByteSinkFromArray>, IByteSink
+    public struct ByteSink : IByteSink
     {
         private int _position;
-        private IByteArray _array = null!;
-        
-        public void Reset(IByteArray array, int startPosition = 0)
+        private readonly IByteArray _array;
+
+        public int Position
         {
-            _position = startPosition;
+            get => _position;
+            set => _position = value;
+        }
+        
+        public ByteSink(IByteArray array)
+        {
             _array = array;
+            _position = 0;
         }
 
         public bool Put(byte value)
@@ -34,17 +40,6 @@
             }
 
             return false;
-        }
-
-        protected override void OnCollected()
-        {
-            _array = null!;
-            _position = 0;
-        }
-
-        protected override void OnRestored()
-        {
-            // DO NOTHING
         }
     }
 }

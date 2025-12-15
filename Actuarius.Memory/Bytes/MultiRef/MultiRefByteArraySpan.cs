@@ -1,25 +1,34 @@
-﻿namespace Actuarius.Memory
+﻿using System;
+
+namespace Actuarius.Memory
 {
     public class MultiRefByteArraySpan : MultiRefByteArray
     {
-        private IMultiRefResourceOwner<IByteArray>? _source;
+        private IMultiRefByteArray _source;
         
-        public MultiRefByteArraySpan(IMultiRefResourceOwner<IByteArray> source, int offset, int count) 
-            : this(source.ExposeResourceUnsafe(out  _), offset, count)
-        {
-            _source = source.Acquire();
-        }
-        
-        private MultiRefByteArraySpan(IByteArray source, int offset, int count) 
+        public MultiRefByteArraySpan(IMultiRefByteArray source, int offset, int count) 
             : base(source.Array, source.Offset + offset, count)
         {
+            if (!ArrayHelper.CheckRange(source.Count, offset, count))
+            {
+                throw new IndexOutOfRangeException();
+            }
+            _source = source.Acquire();
         }
 
         protected override void OnReleased()
         {
-            base.OnReleased();
-            _source?.Release();
+            _source.Release();
             _source = null!;
+            base.OnReleased();
+        }
+    }
+
+    public static class MultiRefByteArraySpan_Ext
+    {
+        public static IMultiRefByteArray GetSpan(IMultiRefByteArray source, int offset, int length)
+        {
+            return new MultiRefByteArraySpan(source, offset, length);
         }
     }
 }
