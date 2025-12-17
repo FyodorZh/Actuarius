@@ -24,8 +24,9 @@ namespace Actuarius.PeriodicLogic
         /// Добавляет логику к запущенному драйверу. Требует успешного вызова Start()
         /// </summary>
         /// <param name="logic"> Запускаемая логика </param>
+        /// <param name="period"></param>
         /// <returns> Успешно ли</returns>
-        ILogicDriverCtl Append(IPeriodicLogic logic, DeltaTime period);
+        ILogicDriverCtl? Append(IPeriodicLogic logic, DeltaTime period);
 
         /// <summary>
         /// Останавливает драйвер. После вызова этого метода Append() использовать нельзя

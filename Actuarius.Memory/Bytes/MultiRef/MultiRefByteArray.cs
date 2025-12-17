@@ -2,7 +2,7 @@
 
 namespace Actuarius.Memory
 {
-    public class MultiRefByteArray : MultiRefResource, IMultiRefByteArray, IMultiRefReadOnlyByteArray, IMultiRefReadOnlyBytes
+    public class MultiRefByteArray : MultiRefResource, IMultiRefByteArray
     {
         private byte[] _array;
         private readonly int _offset;
@@ -47,20 +47,5 @@ namespace Actuarius.Memory
         public byte[] ReadOnlyArray => _array;
 
         public byte[] Array => _array;
-
-        public IReadOnlyBytes ExposeResourceUnsafe(out IReadOnlyBytes resource)
-        {
-            return resource = this;
-        }
-
-        public IReadOnlyByteArray ExposeResourceUnsafe(out IReadOnlyByteArray resource)
-        {
-            return resource = this;
-        }
-
-        public IByteArray ExposeResourceUnsafe(out IByteArray resource)
-        {
-            return resource = this;
-        }
     }
 }

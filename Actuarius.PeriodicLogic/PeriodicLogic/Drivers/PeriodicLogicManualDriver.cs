@@ -12,7 +12,7 @@ namespace Actuarius.PeriodicLogic
             Stopped
         }
 
-        private IPeriodicLogic mLogic = null!;
+        private IPeriodicLogic mLogic = NullLogic.Instance;
         private ILogger mLogger;
 
         private volatile State mState;
@@ -52,6 +52,7 @@ namespace Actuarius.PeriodicLogic
                     {
                         mState = State.Stopped;
                         mLogic.LogicStopped();
+                        mLogic = NullLogic.Instance;
                         return false;
                     }
                 }
@@ -102,6 +103,7 @@ namespace Actuarius.PeriodicLogic
                         try
                         {
                             mLogic.LogicStopped();
+                            mLogic = NullLogic.Instance;
                         }
                         catch (Exception exception)
                         {
@@ -126,15 +128,9 @@ namespace Actuarius.PeriodicLogic
         }
 
         #region IPeriodicLogicDriver
-        public bool IsStarted
-        {
-            get { return /*!mIntentionToStop &&*/ mState == State.Started; }
-        }
+        public bool IsStarted => /*!mIntentionToStop &&*/mState == State.Started;
 
-        public ILogger Log
-        {
-            get { return mLogger; }
-        }
+        public ILogger Log => mLogger;
 
         public bool InvokeLogic()
         {

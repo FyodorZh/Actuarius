@@ -9,7 +9,7 @@ namespace Actuarius.PeriodicLogic
         private readonly DeltaTime mPeriod;
         private readonly DeltaTime mTimeOut;
 
-        private PeriodicLogicManualDriver mDriver;
+        private PeriodicLogicManualDriver? mDriver;
 
         private DateTime mNextTickTime;
 
@@ -42,13 +42,7 @@ namespace Actuarius.PeriodicLogic
         }
 
         #region IWorkStory
-        public DeltaTime Period
-        {
-            get
-            {
-                return mPeriod;
-            }
-        }
+        public DeltaTime Period => mPeriod;
 
         bool IWorkStory.IsFinished
         {
@@ -63,15 +57,9 @@ namespace Actuarius.PeriodicLogic
             }
         }
 
-        DateTime IWorkStory.NextTickTime
-        {
-            get { return mNextTickTime; } // TODO: DO I NEED TO MAKE IT ATOMIC???
-        }
+        DateTime IWorkStory.NextTickTime => mNextTickTime; // TODO: DO I NEED TO MAKE IT ATOMIC???
 
-        DeltaTime IWorkStory.MaxTickTime
-        {
-            get { return mTimeOut; }
-        }
+        DeltaTime IWorkStory.MaxTickTime => mTimeOut;
 
         void IWorkStory.Tick(DateTime now)
         {

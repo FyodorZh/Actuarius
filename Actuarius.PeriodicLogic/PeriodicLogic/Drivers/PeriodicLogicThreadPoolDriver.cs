@@ -6,7 +6,7 @@ namespace Actuarius.PeriodicLogic
 {
     public class PeriodicLogicThreadPoolDriver : IPeriodicLogicDriver, ILogicDriverCtl
     {
-        private readonly Action<int> mOnTickDelay;
+        private readonly Action<int>? mOnTickDelay;
 
         private enum State
         {
@@ -16,31 +16,29 @@ namespace Actuarius.PeriodicLogic
             Finished
         }
 
-        private IPeriodicLogic mLogic;
+        private IPeriodicLogic mLogic = null!;
         private readonly DeltaTime mLogicQuantLength;
         private readonly System.Diagnostics.Stopwatch mWatch = new System.Diagnostics.Stopwatch();
 
-        private AutoResetEvent mResetEvent;
+        private AutoResetEvent mResetEvent = null!;
 
         private volatile int mState = (int)State.BeforeStart;
 
         private State CurrentState
         {
-            get { return (State)mState; }
-            set { mState = (int)value; }
+            get => (State)mState;
+            set => mState = (int)value;
         }
 
-        public PeriodicLogicThreadPoolDriver(DeltaTime logicQuantLength, Action<int> onTickDelay = null)
+        public PeriodicLogicThreadPoolDriver(DeltaTime logicQuantLength, Action<int>? onTickDelay = null)
         {
             mOnTickDelay = onTickDelay;
             mLogicQuantLength = logicQuantLength;
             Log = StaticLogger.Instance;
+            throw new Exception("TODO: REVIEW THIS CLASS");
         }
 
-        public DeltaTime Period
-        {
-            get { return mLogicQuantLength; }
-        }
+        public DeltaTime Period => mLogicQuantLength;
 
         public bool Start(IPeriodicLogic logic, ILogger logger)
         {
@@ -58,10 +56,7 @@ namespace Actuarius.PeriodicLogic
             return false;
         }
 
-        public bool IsStarted
-        {
-            get { return CurrentState == State.Started; }
-        }
+        public bool IsStarted => CurrentState == State.Started;
 
         public ILogger Log { get; private set; }
 
@@ -74,7 +69,7 @@ namespace Actuarius.PeriodicLogic
                 {
                     try
                     {
-                        mResetEvent.Set();
+                        evt.Set();
                         return true;
                     }
                     catch { }
@@ -93,12 +88,11 @@ namespace Actuarius.PeriodicLogic
             Work(state, false);
         }
 
-        private void Work(object st, bool timedOut)
+        private void Work(object? st, bool timedOut)
         {
             try
             {
-                var wrapper = st as RegisteredWaitHandleWrapper;
-                if (wrapper != null)
+                if (st is RegisteredWaitHandleWrapper wrapper)
                 {
                     if (wrapper.Handle != null)
                     {
@@ -186,7 +180,7 @@ namespace Actuarius.PeriodicLogic
 
         class RegisteredWaitHandleWrapper
         {
-            public RegisteredWaitHandle Handle;
+            public RegisteredWaitHandle? Handle;
         }
 
         //        ~PeriodicLogicThreadPoolDriver()

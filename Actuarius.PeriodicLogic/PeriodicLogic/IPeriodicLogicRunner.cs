@@ -6,6 +6,6 @@
     /// </summary>
     public interface IPeriodicLogicRunner
     {
-        ILogicDriverCtl Run(IPeriodicLogic logicToRun, DeltaTime period);
+        ILogicDriverCtl? Run(IPeriodicLogic logicToRun, DeltaTime period);
     }
 }

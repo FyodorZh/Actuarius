@@ -14,9 +14,9 @@ namespace Actuarius.PeriodicLogic
         private readonly ConcurrentQueueValve<PeriodicLogicManualDriver> mPendingToAppend;
 
         private readonly IPeriodicLogicDriver mDriver;
-        private ILogicDriverCtl mDriverCtl;
+        private ILogicDriverCtl? mDriverCtl;
 
-        private readonly WorkTimeAggregator mWorkAggregator;
+        private readonly WorkTimeAggregator? mWorkAggregator;
         private System.TimeSpan mStatisticsFlushPeriod;
         private DateTime mStatisticsFlushTime;
 
@@ -26,7 +26,7 @@ namespace Actuarius.PeriodicLogic
 
         public int Count { get; private set; }
 
-        public PeriodicMultiLogicDriver(IPeriodicLogicDriver driver, IPerformanceMonitor monitor = null)
+        public PeriodicMultiLogicDriver(IPeriodicLogicDriver driver, IPerformanceMonitor? monitor = null)
         {
             mPendingToAppend = new ConcurrentQueueValve<PeriodicLogicManualDriver>(new TinyConcurrentQueue<PeriodicLogicManualDriver>(), d => d.StopAndTick());
 
@@ -35,7 +35,7 @@ namespace Actuarius.PeriodicLogic
             Count = 0;
 
             mWorkAggregator = monitor != null ? new WorkTimeAggregator(monitor, 1) : null;
-            mStatisticsFlushPeriod = monitor != null ? monitor.UpdatePeriod : System.TimeSpan.Zero;
+            mStatisticsFlushPeriod = monitor?.UpdatePeriod ?? TimeSpan.Zero;
         }
 
         public bool Start(ILogger logger)
@@ -53,7 +53,7 @@ namespace Actuarius.PeriodicLogic
             }
         }
 
-        public ILogicDriverCtl Append(IPeriodicLogic logic, DeltaTime period)
+        public ILogicDriverCtl? Append(IPeriodicLogic logic, DeltaTime period)
         {
             if (mDriverCtl == null)
             {
@@ -83,8 +83,7 @@ namespace Actuarius.PeriodicLogic
 
             System.DateTime now = HighResDateTime.UtcNow;
 
-            PeriodicLogicManualDriver driver;
-            while (mPendingToAppend.TryPop(out driver))
+            while (mPendingToAppend.TryPop(out var driver))
             {
                 mLogics.Add(driver);
             }
@@ -97,7 +96,7 @@ namespace Actuarius.PeriodicLogic
                 if (!logic.IsStarted)
                 {
                     mLogics[i] = mLogics[lastPos];
-                    mLogics[lastPos--] = null;
+                    mLogics[lastPos--] = null!;
                 }
             }
             mLogics.RemoveRange(lastPos + 1, mLogics.Count - (lastPos + 1));

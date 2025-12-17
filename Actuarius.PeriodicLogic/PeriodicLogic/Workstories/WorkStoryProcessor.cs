@@ -25,7 +25,7 @@ namespace Actuarius.PeriodicLogic
                 }
             }
 
-            public IWorkStory Extract(DateTime tillTime)
+            public IWorkStory? Extract(DateTime tillTime)
             {
                 if (mSize > 0 && mHeadTime.Time <= tillTime)
                 {
@@ -49,24 +49,18 @@ namespace Actuarius.PeriodicLogic
         {
             private readonly WorkStoryProcessor mOwner;
 
-            private volatile ILogicDriverCtl mDriver;
+            private volatile ILogicDriverCtl? mDriver;
 
-            private volatile Thread mCurThread;
+            private volatile Thread? mCurThread;
             private readonly ThreadSafeDateTime mCurJobEndTime = new ThreadSafeDateTime();
 
-            private volatile IWorkStory mCurJob;
+            private volatile IWorkStory? mCurJob;
 
             private readonly Stopwatch mTimer = new Stopwatch();
 
-            public Thread CurrentThread
-            {
-                get { return mCurThread; }
-            }
+            public Thread? CurrentThread => mCurThread;
 
-            public IWorkStory CurrentJob
-            {
-                get { return mCurJob; }
-            }
+            public IWorkStory? CurrentJob => mCurJob;
 
             public Worker(WorkStoryProcessor owner)
             {
@@ -93,7 +87,7 @@ namespace Actuarius.PeriodicLogic
                 {
                     var now = HighResDateTime.UtcNow;
 
-                    IWorkStory job = mOwner.Jobs.Extract(now);
+                    IWorkStory? job = mOwner.Jobs.Extract(now);
                     if (job == null)
                     {
                         break;
@@ -140,7 +134,7 @@ namespace Actuarius.PeriodicLogic
                         mOwner.OnFinished(job, workState);
                         if (workState == WorkstoryState.Hung)
                         {
-                            mDriver.Stop();
+                            mDriver?.Stop();
                             break;
                         }
                     }
@@ -176,7 +170,7 @@ namespace Actuarius.PeriodicLogic
         }
 
         private readonly IPeriodicLogicRunner mDriverSource;
-        private readonly Worker[] mWorkers;
+        private readonly Worker?[] mWorkers;
         private readonly JobsPool mJobs;
 
         private readonly DeltaTime mTickPeriod;
@@ -186,11 +180,11 @@ namespace Actuarius.PeriodicLogic
 
         private readonly IConcurrentQueue<KeyValuePair<IWorkStory, WorkstoryState>> mFinished = new TinyConcurrentQueue<KeyValuePair<IWorkStory, WorkstoryState>>();
 
-        private volatile ILogicDriverCtl mDriver;
+        private volatile ILogicDriverCtl? mDriver;
 
         private int mActiveJobsCount;
 
-        private readonly WorkTimeAggregator mWorkAggregator;
+        private readonly WorkTimeAggregator? mWorkAggregator;
         private readonly System.TimeSpan mStatisticsFlushPeriod;
         private DateTime mStatisticsFlushTime;
 
@@ -200,7 +194,7 @@ namespace Actuarius.PeriodicLogic
             DeltaTime tickPeriod,
             Action<IWorkStory, WorkstoryState> onFinish,
             Action<IWorkStory, Thread> onHung,
-            IPerformanceMonitor monitor = null)
+            IPerformanceMonitor? monitor = null)
         {
             mDriverSource = driverSource;
             mWorkers = new Worker[driverPoolSize];
@@ -209,7 +203,7 @@ namespace Actuarius.PeriodicLogic
             mOnHung = onHung;
 
             mWorkAggregator = monitor != null ? new WorkTimeAggregator(monitor, driverPoolSize) : null;
-            mStatisticsFlushPeriod = monitor != null ? monitor.UpdatePeriod : System.TimeSpan.Zero;
+            mStatisticsFlushPeriod = monitor?.UpdatePeriod ?? TimeSpan.Zero;
 
             mTickPeriod = tickPeriod;
 
@@ -226,21 +220,15 @@ namespace Actuarius.PeriodicLogic
             }
         }
 
-        public int JobsCount
-        {
-            get { return mActiveJobsCount; }
-        }
+        public int JobsCount => mActiveJobsCount;
 
-        public bool IsStarted
-        {
-            get { return mDriver != null; }
-        }
+        public bool IsStarted => mDriver != null;
 
         public bool AddJob(IWorkStory job)
         {
             if (IsStarted)
             {
-                if (job != null && !job.IsFinished)
+                if (!job.IsFinished)
                 {
                     Interlocked.Increment(ref mActiveJobsCount);
                     mJobs.Append(job);
@@ -279,7 +267,7 @@ namespace Actuarius.PeriodicLogic
                     worker = new Worker(this);
                     if (mDriverSource.Run(worker, mTickPeriod) == null)
                     {
-                        worker = null;
+                        worker = null!;
                     }
 
                     mWorkers[i] = worker;
@@ -314,7 +302,7 @@ namespace Actuarius.PeriodicLogic
                         Log.e("WORKSTORY HUNG DETECTED!!!");
                         try
                         {
-                            mOnHung(worker.CurrentJob, worker.CurrentThread);
+                            mOnHung(worker.CurrentJob!, worker.CurrentThread!);
                         }
                         catch (Exception e)
                         {
@@ -323,7 +311,7 @@ namespace Actuarius.PeriodicLogic
 
                         worker.Stop();
                         OnAborted(worker);
-                        OnFinished(worker.CurrentJob, WorkstoryState.Hung);
+                        OnFinished(worker.CurrentJob!, WorkstoryState.Hung);
                     }
                 }
             }
@@ -361,11 +349,8 @@ namespace Actuarius.PeriodicLogic
             mDriver = null;
             for (int i = 0; i < mWorkers.Length; ++i)
             {
-                if (mWorkers[i] != null)
-                {
-                    mWorkers[i].Stop();
-                    mWorkers[i] = null;
-                }
+                var worker = Interlocked.Exchange(ref mWorkers[i], null);
+                worker?.Stop();
             }
         }
     }

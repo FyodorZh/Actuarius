@@ -16,7 +16,7 @@ namespace Actuarius.PeriodicLogic
             Log = logger;
         }
 
-        public ILogicDriverCtl Run(IPeriodicLogic logicToRun, DeltaTime period)
+        public ILogicDriverCtl? Run(IPeriodicLogic logicToRun, DeltaTime period)
         {
             var driver = new PeriodicLogicWorkStoryDriver(mProcessor, period, mTimeOut);
             if (driver.Start(logicToRun, Log))

@@ -4,7 +4,7 @@ namespace Actuarius.PeriodicLogic
 {
     public class PeriodicMultiLogicMultiDriver : IPeriodicMultiLogicDriver
     {
-        private readonly PeriodicMultiLogicDriver[] mBuckets;
+        private readonly PeriodicMultiLogicDriver[]? mBuckets;
         private readonly DeltaTime mPeriod;
 
         public PeriodicMultiLogicMultiDriver(IPeriodicLogicDriver[] drivers)
@@ -72,7 +72,7 @@ namespace Actuarius.PeriodicLogic
             return true;
         }
 
-        public ILogicDriverCtl Append(IPeriodicLogic logic, DeltaTime period)
+        public ILogicDriverCtl? Append(IPeriodicLogic logic, DeltaTime period)
         {
             if (mBuckets != null)
             {

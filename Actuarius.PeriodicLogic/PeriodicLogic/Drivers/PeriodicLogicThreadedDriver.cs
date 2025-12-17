@@ -7,24 +7,21 @@ namespace Actuarius.PeriodicLogic
 {
     public class PeriodicLogicThreadedDriver : IPeriodicLogicDriver, ILogicDriverCtl
     {
-        private readonly Action<int> mOnTickDelay;
+        private readonly Action<int>? mOnTickDelay;
         private readonly DeltaTime mLogicQuantLength;
-        private readonly string mThreadName;
+        private readonly string? mThreadName;
 
-        private IPeriodicLogic mLogic;
+        private IPeriodicLogic mLogic = NullLogic.Instance;
 
         private volatile bool mStarted;
         private readonly Thread mThread;
 
-        private AutoResetEvent mResetEvent;
+        private AutoResetEvent? mResetEvent;
         private volatile int mInvocationIntention;
 
         private static int mActiveDriversCount;
 
-        public static int ActiveDriversCount
-        {
-            get { return mActiveDriversCount; }
-        }
+        public static int ActiveDriversCount => mActiveDriversCount;
 
         private static void IncDriversCount()
         {
@@ -40,12 +37,9 @@ namespace Actuarius.PeriodicLogic
 
         public ILogger Log { get; private set; }
 
-        public bool IsStarted
-        {
-            get { return mStarted; }
-        }
+        public bool IsStarted => mStarted;
 
-        public PeriodicLogicThreadedDriver(DeltaTime period, int maxStackSizeKb = 0, Action<int> onTickDelay = null, string threadName=null)
+        public PeriodicLogicThreadedDriver(DeltaTime period, int maxStackSizeKb = 0, Action<int>? onTickDelay = null, string? threadName = null)
         {
             mOnTickDelay = onTickDelay;
             mLogicQuantLength = period;
@@ -58,14 +52,11 @@ namespace Actuarius.PeriodicLogic
             Log = StaticLogger.Instance;
         }
 
-        public DeltaTime Period
-        {
-            get { return mLogicQuantLength; }
-        }
+        public DeltaTime Period => mLogicQuantLength;
 
         public bool Start(IPeriodicLogic logic, ILogger logger)
         {
-            if (mLogic != null || logic == null)
+            if (mLogic != NullLogic.Instance)
             {
                 return false;
             }
@@ -82,6 +73,7 @@ namespace Actuarius.PeriodicLogic
                     if (!logic.LogicStarted(this))
                     {
                         mLogic.LogicStopped();
+                        mLogic = NullLogic.Instance;
                         throw new Exception("LogicStarted() failed");
                     }
                 }
@@ -104,6 +96,7 @@ namespace Actuarius.PeriodicLogic
                     try
                     {
                         mLogic.LogicStopped();
+                        mLogic = NullLogic.Instance;
                     }
                     catch (Exception ex2)
                     {
@@ -142,7 +135,7 @@ namespace Actuarius.PeriodicLogic
                 {
                     try
                     {
-                        mResetEvent.Set();
+                        evt.Set();
                         return true;
                     }
                     catch { }
@@ -180,7 +173,7 @@ namespace Actuarius.PeriodicLogic
                         int timeToSleep = mLogicQuantLength.MilliSeconds - (int)sw.ElapsedMilliseconds;
                         if (timeToSleep > 0)
                         {
-                            mResetEvent.WaitOne(timeToSleep);
+                            mResetEvent?.WaitOne(timeToSleep);
                             mInvocationIntention = 0;
                         }
                         else if (timeToSleep < -10 && mLogicQuantLength.MilliSeconds > 0)
@@ -203,6 +196,7 @@ namespace Actuarius.PeriodicLogic
                     try
                     {
                         mLogic.LogicStopped();
+                        mLogic = NullLogic.Instance;
                     }
                     catch (Exception ex)
                     {
@@ -212,7 +206,7 @@ namespace Actuarius.PeriodicLogic
                     try
                     {
                         var evt = Interlocked.Exchange(ref mResetEvent, null);
-                        evt.Close();
+                        evt!.Close();
                     }
                     catch (Exception ex)
                     {
