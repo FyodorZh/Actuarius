@@ -16,21 +16,21 @@ namespace Actuarius.Memory
 
     public static class IReleasableResource_Ext
     {
-        public static ResourceOwner<TResource> AsDisposable<TResource>(this TResource resource)
+        public static ReleasableResourceDisposer<TResource> AsDisposable<TResource>(this TResource resource)
             where TResource : class, IReleasableResource
         {
-            return new ResourceOwner<TResource>(resource);
+            return new ReleasableResourceDisposer<TResource>(resource);
         }
         
 
-        public struct ResourceOwner<TResource> : IDisposable
+        public struct ReleasableResourceDisposer<TResource> : IDisposable
             where TResource : class, IReleasableResource
         {
             private TResource? _resource;
 
-            public readonly TResource Value => _resource ?? throw new NullReferenceException();
+            public readonly TResource Resource => _resource ?? throw new NullReferenceException();
             
-            public ResourceOwner(TResource resource)
+            public ReleasableResourceDisposer(TResource resource)
             {
                 _resource = resource;
             }

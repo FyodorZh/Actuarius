@@ -16,8 +16,14 @@ namespace Actuarius.Memory
             _bucketSize = bucketSize;
             _distributionLevel = distributionLevel;
         }
-        
-        public (TResource resource, IPoolSink<TResource> poolSink) Acquire<TResource>() where TResource : class, new()
+
+        IPool<TResource> IGenericPool.GetPool<TResource>()
+        {
+            return GetPool<TResource>();
+        }
+
+        public IConcurrentPool<TResource> GetPool<TResource>()
+            where TResource : class, new()
         {
             int typeId = TypeToIntStaticMap.GetTypeId<TResource>();
 
@@ -30,9 +36,14 @@ namespace Actuarius.Memory
                 }
             }
 
-            var pool0 = (IConcurrentPool<TResource>)pool;
+            return (IConcurrentPool<TResource>)pool;
+        }
 
-            return (pool0.Acquire(), pool0);
+        public (TResource resource, IPoolSink<TResource> poolSink) Acquire<TResource>()
+            where TResource : class, new()
+        {
+            var pool = GetPool<TResource>();
+            return (pool.Acquire(), pool);
         }
     }
 }
