@@ -26,5 +26,10 @@ namespace Actuarius.Collections
             value = default;
             return false;
         }
+
+        public void Clear()
+        {
+            _queue.Clear();
+        }
     }
 }
