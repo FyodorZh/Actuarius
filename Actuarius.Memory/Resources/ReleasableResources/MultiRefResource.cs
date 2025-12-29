@@ -27,7 +27,7 @@ namespace Actuarius.Memory
 
         private readonly RefCounter _refCounter = new RefCounter();
 
-        protected virtual bool TraceEnabled => false;
+        protected virtual bool TraceEnabled => true;
 
 #if TRACE_HISTORY
         private readonly ActionHistoryTracer _tracer = new ActionHistoryTracer();
@@ -59,7 +59,7 @@ namespace Actuarius.Memory
         }
 
 #if TRACE_DESTRUCTOR
-        ~MultiRefResourceImpl()
+        ~MultiRefResource()
         {
             if (_refCounter.IsValid)
             {
