@@ -5,7 +5,7 @@
         public static bool CheckRange(int arrayLength, int rangeOffset, int rangeLength)
         {
             return rangeOffset >= 0 && rangeLength >= 0 &&
-                   rangeOffset < arrayLength && rangeOffset + rangeLength <= arrayLength;
+                   rangeOffset <= arrayLength && rangeOffset + rangeLength <= arrayLength;
         }
 
         public static bool CheckFromTo(int srcLength, int srcOffset, int dstLength, int dstOffset, int count)
