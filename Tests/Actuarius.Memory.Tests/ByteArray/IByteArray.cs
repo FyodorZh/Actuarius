@@ -8,13 +8,13 @@ namespace Actuarius.Memory.Tests
         [Test]
         public void TestByteArraySegment()
         {
-            Test0_5(new MultiRefByteArray([0, 1, 2 ,3, 4, 5]), [0, 1, 2, 3, 4, 5]);
+            Test0_5(new StaticByteArray([0, 1, 2 ,3, 4, 5]), [0, 1, 2, 3, 4, 5]);
         }
 
         [Test]
         public void TestCollectableAbstractByteArraySegment()
         {
-            var segment = new MultiRefByteArraySpan(new MultiRefByteArray([0, 1, 2, 3, 4, 5, 6, 7, 8]), 2, 5);
+            var segment = new MultiRefByteArraySpan(new StaticByteArray([0, 1, 2, 3, 4, 5, 6, 7, 8]), 2, 5);
             Test0_5(segment, [2, 3, 4, 5, 6]);
             segment.Release();
         }
@@ -98,7 +98,7 @@ namespace Actuarius.Memory.Tests
                 if (res1)
                 {
                     ++cnt;
-                    Assert.That(new MultiRefByteArray(dst1).EqualByContent(new MultiRefByteArray(dst2)));
+                    Assert.That(new StaticByteArray(dst1).EqualByContent(new StaticByteArray(dst2)));
                 }
             }
 

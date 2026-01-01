@@ -9,17 +9,16 @@ namespace Actuarius.Memory.Tests
         public void TestByteArraySink()
         {
             byte[] bytes = new byte[7];
-            var sink = new ByteSinkFromArray();
-            sink.Reset(new MultiRefByteArray(bytes), 2);
+            var sink = new ByteSinkToArray(bytes, 2);
 
-            Test1_5(sink);
+            Test1_5(ref sink);
 
             if (sink.Put(0))
             {
                 Assert.Fail();
             }
 
-            Assert.That(new MultiRefByteArray([0, 0, 1, 2, 3, 4, 5]).EqualByContent(new MultiRefByteArray(bytes)), Is.True);
+            Assert.That(bytes, Is.EquivalentTo([0, 0, 1, 2, 3, 4, 5]));
 
         }
 
@@ -27,22 +26,22 @@ namespace Actuarius.Memory.Tests
         public void TestRangedByteArraySink()
         {
             byte[] bytes = new byte[5];
-            var sink = new ByteSinkFromArray();
-            sink.Reset(new MultiRefByteArray(bytes, 1, 3));
+            var sink = new ByteSinkToArray(bytes, 1, 3);
 
-            Test1_5(sink);
+            Test1_5(ref sink);
 
-            Assert.That(new MultiRefByteArray([0, 1, 2, 0, 0]).EqualByContent(new MultiRefByteArray(bytes)), Is.True);
+            Assert.That(bytes, Is.EquivalentTo([0, 1, 2, 0, 0]));
         }
 
-        private void Test1_5(IByteSink sink)
+        private void Test1_5<TByteSink>(ref TByteSink sink)
+            where TByteSink : IByteSink
         {
             try
             {
-                sink.PutMany(new MultiRefByteArray([]));
+                sink.PutMany(new StaticByteArray([]));
                 sink.Put(1);
                 sink.Put(2);
-                sink.PutMany(new MultiRefByteArray([3, 4, 5]));
+                sink.PutMany(new StaticByteArray([3, 4, 5]));
             }
             catch (Exception ex)
             {
