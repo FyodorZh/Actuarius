@@ -2,7 +2,7 @@
 
 namespace Actuarius.Collections
 {
-    public class SynchronizedConcurrentQueue<TData> : IConcurrentQueue<TData>
+    public class SynchronizedByLockConcurrentQueue<TData> : IConcurrentQueue<TData>
     {
         private readonly int _maxCapacity;
         private readonly IQueue<TData> _queue;
@@ -12,7 +12,7 @@ namespace Actuarius.Collections
             get { lock (_queue) { return _queue.Count; } }
         }
 
-        public SynchronizedConcurrentQueue(IQueue<TData> queue, int maxCapacity = -1)
+        public SynchronizedByLockConcurrentQueue(IQueue<TData> queue, int maxCapacity = -1)
         {
             _maxCapacity = (maxCapacity > 0) ? maxCapacity : -1;
             _queue = queue;

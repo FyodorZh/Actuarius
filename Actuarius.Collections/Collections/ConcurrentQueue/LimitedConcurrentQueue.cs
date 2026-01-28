@@ -4,7 +4,7 @@ using System.Diagnostics.CodeAnalysis;
 namespace Actuarius.Collections
 {
     /// <summary>
-    /// TODO: check
+    /// TODO: Don't use it. It is slow and possibly buggy implementation of limited concurrent queue.
     /// </summary>
     /// <typeparam name="T"></typeparam>
     public class LimitedConcurrentQueue<T> : IConcurrentQueue<T>

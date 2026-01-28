@@ -3,7 +3,7 @@ using System.Diagnostics.CodeAnalysis;
 
 namespace Actuarius.Collections
 {
-    public class SynchronizedConcurrentStack<TData> : IConcurrentStack<TData>
+    public class SynchronizedByLockConcurrentStack<TData> : IConcurrentStack<TData>
     {
         private readonly Stack<TData> _stack = new();
 
@@ -20,7 +20,7 @@ namespace Actuarius.Collections
             }
         }
 
-        public SynchronizedConcurrentStack(int maxCapacity = -1)
+        public SynchronizedByLockConcurrentStack(int maxCapacity = -1)
         {
             _maxCapacity = maxCapacity;
         }
