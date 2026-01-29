@@ -3,7 +3,7 @@
     <PropertyGroup>
         <LangVersion>9</LangVersion>
         <Nullable>enable</Nullable>
-        <Version>0.1.0-dev.3</Version>
+        <Version>0.1.1-dev.1</Version>
         <Title>Actuarius.Concurrent</Title>
         <Authors>Fyodor Zhmaev</Authors>
         <Description>Collections library</Description>

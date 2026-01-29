@@ -3,13 +3,14 @@
     <PropertyGroup>
         <LangVersion>9</LangVersion>
         <Nullable>enable</Nullable>
-        <Version>0.1.0-dev.1</Version>
+        <Version>0.1.1-dev.1</Version>
         <Authors>Fyodor Zhmaev</Authors>
         <Copyright>Copyright (c) Fyodor Zhmaev 2026 </Copyright>
         <PackageProjectUrl>https://github.com/FyodorZh/Actuarius</PackageProjectUrl>
         <RepositoryUrl>https://github.com/FyodorZh/Actuarius.git</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <Company>FyodorZh</Company>
+        <PackageLicenseFile>LICENSE</PackageLicenseFile>
         <TargetFramework>netstandard2.0</TargetFramework>
     </PropertyGroup>
 
