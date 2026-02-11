@@ -87,7 +87,7 @@ namespace Actuarius.Collections
             bool bLocked = false;
             try
             {
-                _locker.EnterReadLock();
+                _locker.EnterWriteLock();
                 bLocked = true;
                 if (_dictionary.TryGetValue(key, out oldElement))
                 {
@@ -109,7 +109,7 @@ namespace Actuarius.Collections
             {
                 if (bLocked)
                 {
-                    _locker.ExitReadLock();
+                    _locker.ExitWriteLock();
                 }
             }
         }
@@ -124,7 +124,7 @@ namespace Actuarius.Collections
             bool bLocked = false;
             try
             {
-                _locker.EnterReadLock();
+                _locker.EnterWriteLock();
                 bLocked = true;
                 if (!_dictionary.TryGetValue(key, out resultElement))
                 {
@@ -142,7 +142,7 @@ namespace Actuarius.Collections
             {
                 if (bLocked)
                 {
-                    _locker.ExitReadLock();
+                    _locker.ExitWriteLock();
                 }
             }
         }
