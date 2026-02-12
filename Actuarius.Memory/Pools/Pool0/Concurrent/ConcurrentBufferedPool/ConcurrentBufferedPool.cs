@@ -10,7 +10,7 @@ namespace Actuarius.Memory
         private readonly PoolAccessor<TObject> _multiPool;
 
         public BufferedPool(int bucketSize, int distributionLevel, Func<TObject> acquire)
-            : this(bucketSize, distributionLevel, acquire, () => new TinyConcurrentQueue<Bucket<TObject>>())
+            : this(bucketSize, distributionLevel, acquire, () => new SystemConcurrentQueue<Bucket<TObject>>())
         {}
 
         public BufferedPool(int bucketSize, int distributionLevel, Func<TObject> ctor, Func<IConcurrentUnorderedCollection<Bucket<TObject>>> collectionConstructor)

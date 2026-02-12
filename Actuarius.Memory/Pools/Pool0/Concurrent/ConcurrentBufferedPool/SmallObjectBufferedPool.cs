@@ -8,7 +8,7 @@ namespace Actuarius.Memory
         where TObject : class
     {
         public SmallObjectBufferedPool(Func<TObject> ctor)
-            : base(100, 10, ctor, () => new TinyConcurrentQueue<Bucket<TObject>>())
+            : base(100, 10, ctor, () => new SystemConcurrentQueue<Bucket<TObject>>())
         {
         }
     }

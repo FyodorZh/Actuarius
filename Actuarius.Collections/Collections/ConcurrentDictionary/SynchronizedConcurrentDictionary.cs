@@ -116,7 +116,27 @@ namespace Actuarius.Collections
 
         public bool ReplaceOrAdd(TKey key, TData newElement, [MaybeNullWhen(false)] out TData oldElement)
         {
-            throw new System.NotImplementedException();
+            bool bLocked = false;
+            try
+            {
+                _locker.EnterWriteLock();
+                bLocked = true;
+                _dictionary.TryGetValue(key, out oldElement);
+                _dictionary[key] = newElement;
+                return true;
+            }
+            catch
+            {
+                oldElement = default;
+                return false;
+            }
+            finally
+            {
+                if (bLocked)
+                {
+                    _locker.ExitWriteLock();
+                }
+            }
         }
 
         public bool AddOrGet(TKey key, TData newElement, [MaybeNullWhen(false)] out TData resultElement)

@@ -3,7 +3,7 @@
     <PropertyGroup>
         <LangVersion>9</LangVersion>
         <Nullable>enable</Nullable>
-        <Version>0.1.1-dev.2</Version>
+        <Version>0.1.1-dev.4</Version>
         <Title>Actuarius.Concurrent</Title>
         <Authors>Fyodor Zhmaev</Authors>
         <Description>Collections library</Description>
@@ -36,6 +36,10 @@
 
     <ItemGroup>
       <ProjectReference Include="..\Actuarius.Collections\Actuarius.Collections.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <PackageReference Include="System.Reactive" Version="6.1.0" />
     </ItemGroup>
 
 </Project>
