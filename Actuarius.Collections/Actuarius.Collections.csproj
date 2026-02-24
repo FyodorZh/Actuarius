@@ -3,7 +3,7 @@
     <PropertyGroup>
         <LangVersion>9</LangVersion>
         <Nullable>enable</Nullable>
-        <Version>0.1.2-dev.0</Version>
+        <Version>0.1.3-dev.0</Version>
         <Title>Actuarius.Collections</Title>
         <Authors>Fyodor Zhmaev</Authors>
         <Description>Collections library</Description>
@@ -27,6 +27,7 @@
 
     <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
       <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+      <DebugSymbols>true</DebugSymbols>
     </PropertyGroup>
     
     <ItemGroup>
