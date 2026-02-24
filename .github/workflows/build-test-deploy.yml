@@ -50,7 +50,7 @@ jobs:
               	fi
               	echo "-> Publishing"
               	#dotnet list "$project" package | grep '^   > ' | awk '{print $NF}' | grep -e '-dev\.'
-              	dotnet pack "$project" -c Debug -o ./artefacts --include-symbols
+              	dotnet pack "$project" -c Release -o ./artefacts --include-symbols
               	dotnet nuget push ./artefacts/*.nupkg \
                               --source https://api.nuget.org/v3/index.json \
                               --api-key "$NUGET_API_KEY" \
