@@ -14,6 +14,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Actuarius.Concurrent", "Act
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Actuarius.Collections.PerfTest", "Tests\Actuarius.Collections.PerfTest\Actuarius.Collections.PerfTest.csproj", "{FC82C9B0-DC47-41F7-88EB-13271AE5D6DE}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Actuarius.Concurrent.Tests", "Tests\Actuarius.Concurrent.Tests\Actuarius.Concurrent.Tests.csproj", "{3C1CF22F-E414-4B48-87B1-D3783FA65B92}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -44,10 +46,15 @@ Global
 		{FC82C9B0-DC47-41F7-88EB-13271AE5D6DE}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{FC82C9B0-DC47-41F7-88EB-13271AE5D6DE}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{FC82C9B0-DC47-41F7-88EB-13271AE5D6DE}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3C1CF22F-E414-4B48-87B1-D3783FA65B92}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3C1CF22F-E414-4B48-87B1-D3783FA65B92}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3C1CF22F-E414-4B48-87B1-D3783FA65B92}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3C1CF22F-E414-4B48-87B1-D3783FA65B92}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{4E365043-F6EB-4738-A0DA-3DF565C5AD2E} = {DE512524-D84C-4442-8D5B-12AA612CDDA2}
 		{8EE7E84C-EFAC-4F7E-AEC0-1A03D00F4B87} = {DE512524-D84C-4442-8D5B-12AA612CDDA2}
 		{FC82C9B0-DC47-41F7-88EB-13271AE5D6DE} = {DE512524-D84C-4442-8D5B-12AA612CDDA2}
+		{3C1CF22F-E414-4B48-87B1-D3783FA65B92} = {DE512524-D84C-4442-8D5B-12AA612CDDA2}
 	EndGlobalSection
 EndGlobal

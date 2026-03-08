@@ -5,7 +5,7 @@ using System.Reactive.Subjects;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace Trader.Utils
+namespace Actuarius.Concurrent
 {
     /// <summary>
     /// Represents an observable interface that provides the ability to monitor and react to changes
@@ -96,11 +96,13 @@ namespace Trader.Utils
                 {
                     return;
                 }
-                _value = value;
+                
                 if (_completed)
                 {
                     return;
                 }
+                
+                _value = value;
 
                 if (_waitingPredicates != null)
                 {
@@ -108,6 +110,9 @@ namespace Trader.Utils
                     {
                         if (_waitingPredicates[i].cToken.IsCancellationRequested)
                         {
+                            var tcs_ = _waitingPredicates[i].tcs;
+                            var cToken = _waitingPredicates[i].cToken;
+                            Task.Run(() => tcs_.TrySetCanceled(cToken));
                             _waitingPredicates[i] = _waitingPredicates[_waitingPredicates.Count - 1];
                             _waitingPredicates.RemoveAt(_waitingPredicates.Count - 1);
                         }
@@ -158,6 +163,25 @@ namespace Trader.Utils
                 
                 TaskCompletionSource<bool> tcs = new();
                 _waitingPredicates.Add((tcs, predicate, cancellationToken));
+                cancellationToken.Register(pTcs =>
+                {
+                    lock (_locker)
+                    {
+                        for (int i = 0; i < _waitingPredicates.Count; i++)
+                        {
+                            if (_waitingPredicates[i].tcs == pTcs)
+                            {
+                                var tcs_ = _waitingPredicates[i].tcs;
+                                var cToken = _waitingPredicates[i].cToken;
+                                Task.Run(() => tcs_.TrySetCanceled(cToken));
+
+                                _waitingPredicates[i] = _waitingPredicates[_waitingPredicates.Count - 1];
+                                _waitingPredicates.RemoveAt(_waitingPredicates.Count - 1);
+                                break;
+                            }
+                        }
+                    }
+                }, tcs);
                 return tcs.Task;
             }
         }
@@ -209,9 +233,13 @@ namespace Trader.Utils
                     {
                         foreach (var (tcs, _, cToken) in _waitingPredicates)
                         {
-                            if (!cToken.IsCancellationRequested)
+                            if (cToken.IsCancellationRequested)
                             {
-                                Task.Run(() => tcs.SetResult(false));
+                                Task.Run(() => tcs.TrySetCanceled(cToken));
+                            }
+                            else
+                            {
+                                Task.Run(() => tcs.TrySetResult(false));
                             }
                         }
                         _waitingPredicates.Clear();

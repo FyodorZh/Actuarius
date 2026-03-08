@@ -52,3 +52,5 @@ CodeCoverage/
 *.VisualState.xml
 TestResult.xml
 nunit-*.xml
+Actuarius.sln.DotSettings.user
+.idea/.idea.Actuarius/.idea/copilot.data.migration.ask2agent.xml
