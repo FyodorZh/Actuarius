@@ -322,6 +322,14 @@ namespace Actuarius.Concurrent
             Preserved = 8
         }
 
+        public KeyValuePair<TKey, TData>[] ToArray()
+        {
+            lock (_lock)
+            {
+                return _currentDictionary.ToArray();
+            }
+        }
+
         #region IMap
         public bool Add(TKey key, TData element)
         {

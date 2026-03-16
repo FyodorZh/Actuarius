@@ -6,7 +6,7 @@ using System.Reactive.Subjects;
 
 namespace Actuarius.Concurrent
 {   
-    public class ObservableSet<TData>: IObservableSet<TData>
+    public class ObservableSet<TData>: IObservableSet<TData>, Collections.ISet<TData>
         where TData: notnull
     {
         private readonly Subject<ObservableSetPatch<TData>> _patchStream = new();
@@ -226,6 +226,62 @@ namespace Actuarius.Concurrent
             Present = 1,
             Added = 2,
             Preserved = Present | Added
+        }
+        
+        public TData[] ToArray()
+        {
+            lock (_lock)
+            {
+                return _currentSet.ToArray();
+            }
+        }
+
+        public bool Put(TData value)
+        {
+            lock (_lock)
+            {
+                if (_completed)
+                {
+                    return false;
+                }
+
+                if (_currentSet.Add(value))
+                {
+                    _elementMap[value] = Flag.Present;
+                    _patchStream.OnNext(new ObservableSetPatch<TData>(new[] { value }, Array.Empty<TData>()));
+                    return true;
+                }
+
+                return false;
+            }
+        }
+
+        public bool Remove(TData element)
+        {
+            lock (_lock)
+            {
+                if (_completed)
+                {
+                    return false;
+                }
+
+                if (_currentSet.Remove(element))
+                {
+                    _elementMap.Remove(element);
+                    _patchStream.OnNext(new ObservableSetPatch<TData>(Array.Empty<TData>(), new[] { element }));
+                    return true;
+                }
+
+                return false;
+            }
+        }
+
+        public bool Contains(TData element)
+        {
+            lock (_lock)
+            {
+                return _currentSet.Contains(element);
+            }
         }
     }
 }
