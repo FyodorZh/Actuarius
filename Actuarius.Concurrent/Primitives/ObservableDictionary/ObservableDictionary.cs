@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Reactive.Disposables;
 using System.Reactive.Subjects;
+using Actuarius.Collections;
 
 namespace Actuarius.Concurrent
 {
@@ -12,7 +14,7 @@ namespace Actuarius.Concurrent
     /// </summary>
     /// <typeparam name="TKey">The type of the keys in the dictionary. Must be not null.</typeparam>
     /// <typeparam name="TData">The type of the values in the dictionary.</typeparam>
-    public class ObservableDictionary<TKey, TData> : IObservableDictionary<TKey, TData>
+    public class ObservableDictionary<TKey, TData> : IObservableDictionary<TKey, TData>, IMap<TKey, TData>
         where TKey : notnull
     {
         private readonly Subject<ObservableDictionaryPatch<TKey, TData>> _patchStream = new();
@@ -20,7 +22,7 @@ namespace Actuarius.Concurrent
         private readonly Dictionary<TKey, TData> _currentDictionary;
         private readonly Dictionary<TKey, Flag> _keyMap;
 
-        private readonly IEqualityComparer<TData> _dataComparer = null!;
+        private readonly IEqualityComparer<TData> _dataComparer;
 
         private readonly object _lock = new();
 
@@ -262,7 +264,7 @@ namespace Actuarius.Concurrent
         /// </summary>
         /// <param name="keys">The keys to remove. Cannot be null.</param>
         /// <exception cref="ArgumentNullException">Thrown if <paramref name="keys"/> is null.</exception>
-        public void Remove(IEnumerable<TKey> keys)
+        public void RemoveMany(IEnumerable<TKey> keys)
         {
             if (keys == null!)
             {
@@ -319,5 +321,70 @@ namespace Actuarius.Concurrent
             Updated = 4,
             Preserved = 8
         }
+
+        #region IMap
+        public bool Add(TKey key, TData element)
+        {
+            lock (_lock)
+            {
+                if (_completed)
+                {
+                    return false;
+                }
+
+                if (_currentDictionary.ContainsKey(key))
+                {
+                    _currentDictionary[key] = element;
+                    _keyMap[key] = Flag.Updated;
+                    _patchStream.OnNext(new ObservableDictionaryPatch<TKey, TData>(
+                        Array.Empty<KeyValuePair<TKey, TData>>(),
+                        new KeyValuePair<TKey, TData>[] { new(key, element) },
+                        Array.Empty<TKey>()));
+                }
+                else
+                {
+                    _currentDictionary.Add(key, element);
+                    _keyMap.Add(key, Flag.Added);
+                    _patchStream.OnNext(new ObservableDictionaryPatch<TKey, TData>(
+                        new KeyValuePair<TKey, TData>[] { new(key, element) },
+                        Array.Empty<KeyValuePair<TKey, TData>>(),
+                        Array.Empty<TKey>()));
+                }
+
+                return true;
+            }
+        }
+
+        public bool Remove(TKey key)
+        {
+            lock (_lock)
+            {
+                if (_completed)
+                {
+                    return false;
+                }
+
+                if (_currentDictionary.Remove(key))
+                {
+                    _keyMap.Remove(key);
+                    _patchStream.OnNext(new ObservableDictionaryPatch<TKey, TData>(
+                        Array.Empty<KeyValuePair<TKey, TData>>(),
+                        Array.Empty<KeyValuePair<TKey, TData>>(),
+                        new TKey[] { key }));
+                    return true;
+                }
+
+                return false;
+            }
+        }
+
+        public bool TryGetValue(TKey key, [MaybeNullWhen(false)] out TData element)
+        {
+            lock (_lock)
+            {
+                return _currentDictionary.TryGetValue(key, out element);
+            }
+        }
+        #endregion
     }
 }

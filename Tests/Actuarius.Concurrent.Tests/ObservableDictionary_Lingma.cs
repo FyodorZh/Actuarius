@@ -380,7 +380,7 @@ public class ObservableDictionaryTests
         var dictionary = new ObservableDictionary<string, int>();
         
         Assert.Throws<ArgumentNullException>(() => 
-            dictionary.Remove(null!));
+            dictionary.RemoveMany(null!));
     }
 
     [Test]
@@ -397,7 +397,7 @@ public class ObservableDictionaryTests
         var patches = new List<ObservableDictionaryPatch<string, int>>();
         dictionary.Subscribe(patch => patches.Add(patch));
         
-        dictionary.Remove(new[] { "A", "B" });
+        dictionary.RemoveMany(new[] { "A", "B" });
         
         Assert.That(patches, Has.Count.EqualTo(2));
         Assert.That(patches[0].Added, Has.Count.EqualTo(3));
@@ -418,7 +418,7 @@ public class ObservableDictionaryTests
         var patches = new List<ObservableDictionaryPatch<string, int>>();
         dictionary.Subscribe(patch => patches.Add(patch));
         
-        dictionary.Remove(new[] { "NonExistent" });
+        dictionary.RemoveMany(new[] { "NonExistent" });
         
         Assert.That(patches, Has.Count.EqualTo(0));
     }
@@ -661,7 +661,7 @@ public class ObservableDictionaryTests
         dictionary.AddOrUpdate([new KeyValuePair<string, int>("C", 30)]);
         
         // Remove some
-        dictionary.Remove(new[] { "A", "D" });
+        dictionary.RemoveMany(new[] { "A", "D" });
         
         // Clear all
         dictionary.Clear();
@@ -707,7 +707,7 @@ public class ObservableDictionaryTests
         
         dictionary.Set(Array.Empty<KeyValuePair<string, int>>());
         dictionary.AddOrUpdate(Array.Empty<KeyValuePair<string, int>>());
-        dictionary.Remove(Array.Empty<string>());
+        dictionary.RemoveMany(Array.Empty<string>());
         
         Assert.That(notificationCount, Is.EqualTo(0));
     }
