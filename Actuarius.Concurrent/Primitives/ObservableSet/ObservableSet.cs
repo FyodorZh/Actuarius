@@ -6,25 +6,25 @@ using System.Reactive.Subjects;
 
 namespace Actuarius.Concurrent
 {   
-    public class ObservableSet<T>: IObservableSet<T>
-        where T: notnull
+    public class ObservableSet<TData>: IObservableSet<TData>
+        where TData: notnull
     {
-        private readonly Subject<ObservableSetPatch<T>> _patchStream = new();
+        private readonly Subject<ObservableSetPatch<TData>> _patchStream = new();
 
-        private readonly HashSet<T> _currentSet;
-        private readonly Dictionary<T, Flag> _elementMap;
+        private readonly HashSet<TData> _currentSet;
+        private readonly Dictionary<TData, Flag> _elementMap;
 
         private readonly object _lock = new();
 
         private bool _completed = false;
 
-        public ObservableSet(IEqualityComparer<T>? comparer = null)
+        public ObservableSet(IEqualityComparer<TData>? comparer = null)
         {
             _currentSet = new(comparer);
-            _elementMap = new Dictionary<T, Flag>(comparer);
+            _elementMap = new Dictionary<TData, Flag>(comparer);
         }
         
-        public IDisposable Subscribe(IObserver<ObservableSetPatch<T>> observer)
+        public IDisposable Subscribe(IObserver<ObservableSetPatch<TData>> observer)
         {
             if (observer == null)
             {
@@ -41,7 +41,7 @@ namespace Actuarius.Concurrent
 
                 if (_currentSet.Count > 0)
                 {
-                    var delta = new ObservableSetPatch<T>(_currentSet.ToArray(), Array.Empty<T>());
+                    var delta = new ObservableSetPatch<TData>(_currentSet.ToArray(), Array.Empty<TData>());
                     observer.OnNext(delta);
                 }
 
@@ -58,7 +58,7 @@ namespace Actuarius.Concurrent
                     return;
                 }
 
-                ObservableSetPatch<T> patch = new ObservableSetPatch<T>(Array.Empty<T>(), _currentSet.ToArray());
+                ObservableSetPatch<TData> patch = new ObservableSetPatch<TData>(Array.Empty<TData>(), _currentSet.ToArray());
                 
                 _currentSet.Clear();
                 _elementMap.Clear();
@@ -67,7 +67,7 @@ namespace Actuarius.Concurrent
             }
         }
 
-        public void Set(IEnumerable<T> elements)
+        public void Set(IEnumerable<TData> elements)
         {
             if (elements == null!)
             {
@@ -86,7 +86,7 @@ namespace Actuarius.Concurrent
                     _elementMap[kv.Key] = Flag.Present;
                 }
 
-                foreach (T element in elements)
+                foreach (TData element in elements)
                 {
                     if (_elementMap.TryGetValue(element, out var flag))
                     {
@@ -105,20 +105,20 @@ namespace Actuarius.Concurrent
                     }
                 }
 
-                List<T>? added = null;
-                List<T>? removed = null;
+                List<TData>? added = null;
+                List<TData>? removed = null;
 
                 foreach (var kv in _elementMap)
                 {
                     if (kv.Value == Flag.Added)
                     {
-                        added ??= new List<T>();
+                        added ??= new List<TData>();
                         added.Add(kv.Key);
                         _currentSet.Add(kv.Key);
                     }
                     else if (kv.Value == Flag.Present)
                     {
-                        removed ??= new List<T>();
+                        removed ??= new List<TData>();
                         removed.Add(kv.Key);
                         _currentSet.Remove(kv.Key);
                     }
@@ -137,13 +137,13 @@ namespace Actuarius.Concurrent
                     }
                 }
                 
-                ObservableSetPatch<T> patch = new(added ?? (IReadOnlyList<T>)Array.Empty<T>(), removed ?? (IReadOnlyList<T>)Array.Empty<T>());
+                ObservableSetPatch<TData> patch = new(added ?? (IReadOnlyList<TData>)Array.Empty<TData>(), removed ?? (IReadOnlyList<TData>)Array.Empty<TData>());
 
                 _patchStream.OnNext(patch);
             }
         }
 
-        public void Append(IEnumerable<T> elements)
+        public void Append(IEnumerable<TData> elements)
         {
             if (elements == null!)
             {
@@ -157,7 +157,7 @@ namespace Actuarius.Concurrent
                     return;
                 }
                 
-                List<T>? added = null;
+                List<TData>? added = null;
                 foreach (var element in elements)
                 {
                     if (_currentSet.Add(element))
@@ -165,18 +165,18 @@ namespace Actuarius.Concurrent
                         _elementMap[element] = Flag.Present;
                     }
 
-                    added ??= new List<T>();
+                    added ??= new List<TData>();
                     added.Add(element);
                 }
 
                 if (added != null)
                 {
-                    _patchStream.OnNext(new ObservableSetPatch<T>(added, Array.Empty<T>()));
+                    _patchStream.OnNext(new ObservableSetPatch<TData>(added, Array.Empty<TData>()));
                 }
             }
         }
         
-        public void Remove(IEnumerable<T> elements)
+        public void Remove(IEnumerable<TData> elements)
         {
             if (elements == null!)
             {
@@ -190,7 +190,7 @@ namespace Actuarius.Concurrent
                     return;
                 }
                 
-                List<T>? removed = null;
+                List<TData>? removed = null;
                 foreach (var element in elements)
                 {
                     if (_currentSet.Remove(element))
@@ -198,13 +198,13 @@ namespace Actuarius.Concurrent
                         _elementMap.Remove(element);
                     }
 
-                    removed ??= new List<T>();
+                    removed ??= new List<TData>();
                     removed.Add(element);
                 }
 
                 if (removed != null)
                 {
-                    _patchStream.OnNext(new ObservableSetPatch<T>(Array.Empty<T>(), removed));
+                    _patchStream.OnNext(new ObservableSetPatch<TData>(Array.Empty<TData>(), removed));
                 }
             }
         }
