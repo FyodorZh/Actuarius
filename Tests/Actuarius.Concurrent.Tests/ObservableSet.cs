@@ -9,6 +9,25 @@ namespace Actuarius.Concurrent.Tests;
 public class ObservableSetTests
 {
     [Test]
+    public void CheckForClear()
+    {
+        var observableSet = new ObservableSet<string>();
+
+        observableSet.Set(new[] { "X", "Y" });
+        
+        List<ObservableSetPatch<string>> patches = new();
+        observableSet.Subscribe(patch => patches.Add(patch));
+
+        observableSet.Clear();
+
+        Assert.That(patches, Has.Count.EqualTo(2));
+        Assert.That(patches[0].Added, Is.EquivalentTo(new[] { "X", "Y" }));
+        Assert.That(patches[0].Removed, Is.EquivalentTo(Array.Empty<string>()));
+        Assert.That(patches[1].Added, Is.EquivalentTo(Array.Empty<string>()));
+        Assert.That(patches[1].Removed, Is.EquivalentTo(new[] { "X", "Y" }));
+    }
+    
+    [Test]
     public void CheckForInit()
     {
         var observableSet = new ObservableSet<string>();

@@ -6,37 +6,22 @@ using System.Reactive.Subjects;
 
 namespace Actuarius.Concurrent
 {   
-    public interface IObservableSet<T> : IObservable<ObservableSetPatch<T>>
-    {
-    }
-    
-    public readonly struct ObservableSetPatch<T>
-    {
-        public IReadOnlyList<T> Added { get; }
-        public IReadOnlyList<T> Removed { get; }
-
-        public ObservableSetPatch(IReadOnlyList<T> added, IReadOnlyList<T> removed)
-        {
-            Added = added;
-            Removed = removed;
-        }
-    }
-    
     public class ObservableSet<T>: IObservableSet<T>
         where T: notnull
     {
         private readonly Subject<ObservableSetPatch<T>> _patchStream = new();
 
         private readonly HashSet<T> _currentSet;
-        private readonly Dictionary<T, Flag> _elementMap = new();
+        private readonly Dictionary<T, Flag> _elementMap;
 
         private readonly object _lock = new();
 
         private bool _completed = false;
 
-        public ObservableSet()
+        public ObservableSet(IEqualityComparer<T>? comparer = null)
         {
-            _currentSet = new();
+            _currentSet = new(comparer);
+            _elementMap = new Dictionary<T, Flag>(comparer);
         }
         
         public IDisposable Subscribe(IObserver<ObservableSetPatch<T>> observer)
@@ -62,7 +47,24 @@ namespace Actuarius.Concurrent
 
                 return _patchStream.Subscribe(observer);    
             }
-            
+        }
+
+        public void Clear()
+        {
+            lock (_lock)
+            {
+                if (_completed)
+                {
+                    return;
+                }
+
+                ObservableSetPatch<T> patch = new ObservableSetPatch<T>(Array.Empty<T>(), _currentSet.ToArray());
+                
+                _currentSet.Clear();
+                _elementMap.Clear();
+                
+                _patchStream.OnNext(patch);
+            }
         }
 
         public void Set(IEnumerable<T> elements)
