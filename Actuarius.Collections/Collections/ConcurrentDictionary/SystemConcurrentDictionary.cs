@@ -38,5 +38,10 @@ namespace Actuarius.Collections
             resultElement = _dictionary.GetOrAdd(key, newElement);
             return true;
         }
+
+        public bool GetAndRemove(TKey key, [MaybeNullWhen(false)] out TData resultElement)
+        {
+            return _dictionary.TryRemove(key, out resultElement);
+        }
     }
 }

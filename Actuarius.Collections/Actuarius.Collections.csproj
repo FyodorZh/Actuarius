@@ -3,7 +3,7 @@
     <PropertyGroup>
         <LangVersion>9</LangVersion>
         <Nullable>enable</Nullable>
-        <Version>0.1.3-dev.0</Version>
+        <Version>0.1.4-dev.0</Version>
         <Title>Actuarius.Collections</Title>
         <Authors>Fyodor Zhmaev</Authors>
         <Description>Collections library</Description>
@@ -13,7 +13,7 @@
         <RepositoryType>git</RepositoryType>
         <PackageReadmeFile>nuget.readme.md</PackageReadmeFile>
         <PackageLicenseFile>LICENSE</PackageLicenseFile>
-        <TargetFrameworks>netstandard2.1;netstandard2.0</TargetFrameworks>
+        <TargetFramework>netstandard2.1</TargetFramework>
     </PropertyGroup>
 
     <PropertyGroup>

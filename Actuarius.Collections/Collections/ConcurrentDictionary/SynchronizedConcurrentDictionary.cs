@@ -166,5 +166,28 @@ namespace Actuarius.Collections
                 }
             }
         }
+
+        public bool GetAndRemove(TKey key, [MaybeNullWhen(false)] out TData resultElement)
+        {
+            bool bLocked = false;
+            try
+            {
+                _locker.EnterWriteLock();
+                bLocked = true;
+                return _dictionary.Remove(key, out resultElement);
+            }
+            catch
+            {
+                resultElement = default;
+                return false;
+            }
+            finally
+            {
+                if (bLocked)
+                {
+                    _locker.ExitWriteLock();
+                }
+            }
+        }
     }
 }

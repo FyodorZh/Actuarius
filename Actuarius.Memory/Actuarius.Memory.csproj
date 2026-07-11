@@ -3,7 +3,7 @@
     <PropertyGroup>
         <LangVersion>9</LangVersion>
         <Nullable>enable</Nullable>
-        <Version>0.1.3-dev.0</Version>
+        <Version>0.1.4-dev.0</Version>
         <Authors>Fyodor Zhmaev</Authors>
         <Copyright>Copyright (c) Fyodor Zhmaev 2026 </Copyright>
         <PackageProjectUrl>https://github.com/FyodorZh/Actuarius</PackageProjectUrl>
@@ -11,7 +11,7 @@
         <RepositoryType>git</RepositoryType>
         <Company>FyodorZh</Company>
         <PackageLicenseFile>LICENSE</PackageLicenseFile>
-        <TargetFramework>netstandard2.0</TargetFramework>
+        <TargetFramework>netstandard2.1</TargetFramework>
         <Title>Actuarius.Memory</Title>
     </PropertyGroup>
 

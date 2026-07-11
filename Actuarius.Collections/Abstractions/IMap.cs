@@ -37,5 +37,7 @@ namespace Actuarius.Collections
         /// <param name="resultElement"> </param>
         /// <returns></returns>
         bool AddOrGet(TKey key, TData newElement, [MaybeNullWhen(false)] out TData resultElement);
+
+        bool GetAndRemove(TKey key, [MaybeNullWhen(false)] out TData resultElement);
     }
 }
