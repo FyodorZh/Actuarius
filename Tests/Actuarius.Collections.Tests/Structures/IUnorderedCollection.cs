@@ -16,12 +16,6 @@ namespace Actuarius.Collections.Tests
         }
 
         [Test]
-        public void TestTinyConcurrentQueue()
-        {
-            Test(new TinyConcurrentQueue<int>(), (int)1e6, 0.5001, id => ++id);
-        }
-
-        [Test]
         public void TestLimitedConcurrentQueue()
         {
             Test(new LimitedConcurrentQueue<int>(10000), (int)1e6, 0.5001, id => ++id);

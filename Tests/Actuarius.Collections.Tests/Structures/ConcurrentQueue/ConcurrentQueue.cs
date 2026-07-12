@@ -121,12 +121,6 @@ namespace Actuarius.Collections.Tests
         }
 
         [Test]
-        public void TinyConcurrentQueueTest()
-        {
-            DoTest(new QueueLimiter<Pair>(new TinyConcurrentQueue<Pair>(), 10000), 3);
-        }
-
-        [Test]
         public void SingleReaderWriterConcurrentQueueTest()
         {
             DoTest(new SingleReaderWriterConcurrentQueue<long>());

@@ -7,7 +7,7 @@ namespace Actuarius.Memory.Internal
 {
     public class ActionHistoryTracer
     {
-        private volatile IConcurrentQueue<Record> _history = new TinyConcurrentQueue<Record>();
+        private volatile IConcurrentQueue<Record> _history = new SystemConcurrentQueue<Record>();
 
         public void RecordEvent(string name, int skipFrames = 1)
         {
@@ -17,7 +17,7 @@ namespace Actuarius.Memory.Internal
 
         public void Clear()
         {
-            _history = new TinyConcurrentQueue<Record>();
+            _history = new SystemConcurrentQueue<Record>();
         }
 
         public List<Record> Export()

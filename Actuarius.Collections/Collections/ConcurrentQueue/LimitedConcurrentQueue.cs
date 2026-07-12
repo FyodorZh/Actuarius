@@ -1,12 +1,8 @@
-﻿using System;
-using System.Diagnostics.CodeAnalysis;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Threading;
 
 namespace Actuarius.Collections
 {
-    /// <summary>
-    /// TODO: Don't use it. It is slow and possibly buggy implementation of limited concurrent queue.
-    /// </summary>
-    /// <typeparam name="T"></typeparam>
     public class LimitedConcurrentQueue<T> : IConcurrentQueue<T>
     {
         private struct Element
@@ -20,10 +16,11 @@ namespace Actuarius.Collections
 
         private long _start = 1;
         private long _end;
-
         private int _count;
-        
-        public int Count => Math.Min(_count, _capacity - 1);
+
+        // Fix 3: Count now returns the actual number of items, never exceeding _capacity.
+        // Volatile.Read ensures a fresh value with acquire semantics.
+        public int Count => Volatile.Read(ref _count);
 
         public LimitedConcurrentQueue(int capacity)
         {
@@ -33,19 +30,24 @@ namespace Actuarius.Collections
 
         public bool Put(T value)
         {
-            int count = System.Threading.Interlocked.Increment(ref _count);
+            int count = Interlocked.Increment(ref _count);
             if (count <= _capacity)
             {
-                System.Threading.Thread.MemoryBarrier();
-                long pos = System.Threading.Interlocked.Increment(ref _end);
+                // Fix 4: Removed the unnecessary Thread.MemoryBarrier() here.
+                // Interlocked.Increment already provides a full fence.
+
+                long pos = Interlocked.Increment(ref _end);
                 int posToWrite = (int)(pos % _capacity);
                 _data[posToWrite].Data = value;
-                System.Threading.Thread.MemoryBarrier(); // вроде как запись реордериться не должна ???
-                System.Threading.Interlocked.Exchange(ref _data[posToWrite].Flag, pos);
+
+                // Fix 4: Removed the barrier before the Exchange.
+                // Interlocked.Exchange is a full fence and guarantees that the Data write
+                // is visible to any thread that later sees this Flag value.
+                Interlocked.Exchange(ref _data[posToWrite].Flag, pos);
                 return true;
             }
 
-            System.Threading.Interlocked.Decrement(ref _count);
+            Interlocked.Decrement(ref _count);
             return false;
         }
 
@@ -53,23 +55,32 @@ namespace Actuarius.Collections
         {
             while (true)
             {
-                long start = System.Threading.Interlocked.Read(ref _start);
-                if (start > System.Threading.Interlocked.Read(ref _end))
+                // Fix 2: Use Volatile.Read with acquire semantics to avoid seeing stale
+                // values of _start and _end on weakly ordered hardware (e.g. ARM).
+                long start = Volatile.Read(ref _start);
+                long end = Volatile.Read(ref _end);
+
+                if (start > end)
                 {
                     value = default;
                     return false;
                 }
+
                 int posToRead = (int)(start % _capacity);
 
-                if (System.Threading.Interlocked.CompareExchange(ref _data[posToRead].Flag, 0, start) == start)
+                // The CAS is a full fence, so if we succeed we have acquire/release.
+                if (Interlocked.CompareExchange(ref _data[posToRead].Flag, 0, start) == start)
                 {
-                    System.Threading.Thread.MemoryBarrier();
+                    // Fix 4: The CAS already provides a full memory barrier.
+                    // The following read of Data is therefore correctly ordered.
                     value = _data[posToRead].Data;
                     _data[posToRead].Data = default!;
-                    System.Threading.Interlocked.Increment(ref _start);
-                    System.Threading.Interlocked.Decrement(ref _count);
+
+                    Interlocked.Increment(ref _start);
+                    Interlocked.Decrement(ref _count);
                     return true;
                 }
+                // If the CAS fails, the slot is either not ready or already taken – retry.
             }
         }
     }

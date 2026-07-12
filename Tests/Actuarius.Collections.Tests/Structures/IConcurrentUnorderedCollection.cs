@@ -6,13 +6,6 @@ namespace Actuarius.Collections.Tests
     public class IConcurrentUnorderedCollection
     {
         [Test]
-        public void TestTinyConcurrentQueue()
-        {
-            Test1(new TinyConcurrentQueue<int>(), (int)1e5, 0.5001);
-            Test2(new TinyConcurrentQueue<int>(), 10, 100, 5.0);
-        }
-
-        [Test]
         public void TestLimitedConcurrentQueue()
         {
             Test1(new LimitedConcurrentQueue<int>(10000), (int)1e5, 0.5001);

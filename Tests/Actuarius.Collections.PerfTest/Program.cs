@@ -27,7 +27,6 @@ namespace Actuarius.Collections.PerfTest.Stream.Concurrent
                 () => new SystemConcurrentQueue<XorPayload<Empty>>(),
                 () => new SynchronizedByLockConcurrentQueue<XorPayload<Empty>>(new SystemQueue<XorPayload<Empty>>()),
                 () => new SynchronizedBySpinLockConcurrentQueue<XorPayload<Empty>>(new SystemQueue<XorPayload<Empty>>()),
-                () => new TinyConcurrentQueue<XorPayload<Empty>>(),
                 () => new LimitedConcurrentQueue<XorPayload<Empty>>(10000),
                 () => new SystemConcurrentStack<XorPayload<Empty>>(),
                 () => new SynchronizedByLockConcurrentStack<XorPayload<Empty>>(),
