@@ -37,6 +37,14 @@ namespace Actuarius.Memory
             return _refCounter.Revive();
         }
 
+        IMultiRefResourceMonitor IMultiRefResource.ConstructMonitor(
+            bool collectHistor,
+            bool trackLeaks,
+            bool traceEnabled)
+        {
+            return ConstructMonitor(collectHistor, trackLeaks, traceEnabled);
+        }
+
         /// <summary>
         /// Creates (or returns the existing) diagnostics monitor bound to this resource.
         /// Pass the returned monitor to the owner that needs to observe misuse.

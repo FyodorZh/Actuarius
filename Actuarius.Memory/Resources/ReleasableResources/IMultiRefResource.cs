@@ -16,6 +16,11 @@ namespace Actuarius.Memory
         /// Увеличивает число владельцев на 1
         /// </summary>
         void AddRef();
+
+        public IMultiRefResourceMonitor ConstructMonitor(
+            bool collectHistory = true,
+            bool trackLeaks = true,
+            bool traceEnabled = true);
     }
 
     public interface IMultiRefResource_Debug : IMultiRefResource

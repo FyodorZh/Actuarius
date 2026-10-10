@@ -7,30 +7,6 @@ using Actuarius.Memory.Internal;
 namespace Actuarius.Memory
 {
     /// <summary>
-    /// Describes why a <see cref="MultiRefResource"/> was used incorrectly.
-    /// </summary>
-    public enum ResourceUsageErrorType
-    {
-        /// <summary>An owner was added to an already released resource.</summary>
-        AddRefOfReleasedObject,
-
-        /// <summary>A resource with no remaining owners was released again.</summary>
-        ReleaseOfReleasedObject,
-
-        /// <summary>A non-revivable resource was revived, or the count was not exactly zero.</summary>
-        WrongReviveUsage,
-
-        /// <summary>A resource was garbage collected while it still had owners.</summary>
-        Leak,
-
-        /// <summary>The resource was asserted to be idle while it still had owners.</summary>
-        NoUsageAssertionFail,
-
-        /// <summary>An unrecognized failure reported by the reference counter.</summary>
-        Unknown,
-    }
-
-    /// <summary>
     /// Collects diagnostics for a single <see cref="MultiRefResource"/>.
     /// </summary>
     /// <remarks>
@@ -38,13 +14,13 @@ namespace Actuarius.Memory
     /// reference-count events and raises <see cref="Error"/> when misuse is detected. It must be created explicitly
     /// through <see cref="MultiRefResource.ConstructMonitor"/>; until then the resource is not diagnosed.
     /// </remarks>
-    public sealed class MultiRefResourceMonitor
+    public sealed class MultiRefResourceMonitor : IMultiRefResourceMonitor
     {
         private const int MaxHistory = 100;
 
         private readonly IRefCounterView _owner;
         private readonly string _ownerName;
-        private readonly Queue<HistoryRecord>? _history;
+        private readonly Queue<ResourceUsageRecord>? _history;
         private volatile bool _detached;
         private int _lastCount;
 
@@ -97,7 +73,7 @@ namespace Actuarius.Memory
 
             if (collectHistory)
             {
-                _history = new Queue<HistoryRecord>();
+                _history = new Queue<ResourceUsageRecord>();
             }
 
             if (!trackLeaks)
@@ -124,17 +100,17 @@ namespace Actuarius.Memory
         /// <summary>
         /// Returns a snapshot of the recent history, oldest entry first.
         /// </summary>
-        public IReadOnlyList<HistoryRecord> ExportHistory()
+        public IReadOnlyList<ResourceUsageRecord> ExportHistory()
         {
             var history = _history;
             if (history == null)
             {
-                return Array.Empty<HistoryRecord>();
+                return Array.Empty<ResourceUsageRecord>();
             }
 
             lock (history)
             {
-                return new List<HistoryRecord>(history);
+                return new List<ResourceUsageRecord>(history);
             }
         }
 
@@ -241,7 +217,7 @@ namespace Actuarius.Memory
             StackTrace? stack = TraceEnabled ? new StackTrace(2, true) : null;
             lock (history)
             {
-                history.Enqueue(new HistoryRecord(action, count, isError, stack));
+                history.Enqueue(new ResourceUsageRecord(action, count, isError, stack));
                 if (history.Count > MaxHistory)
                 {
                     history.Dequeue();
@@ -314,41 +290,6 @@ namespace Actuarius.Memory
             }
 
             return "Updated";
-        }
-
-        /// <summary>
-        /// A single recorded reference-count event.
-        /// </summary>
-        public readonly struct HistoryRecord
-        {
-            /// <summary>Gets the inferred operation name.</summary>
-            public readonly string Action;
-
-            /// <summary>Gets the reference count observed for the event.</summary>
-            public readonly int Count;
-
-            /// <summary>Gets a value indicating whether the event was a failure.</summary>
-            public readonly bool IsError;
-
-            /// <summary>Gets the captured stack, or null when stack tracing is disabled.</summary>
-            public readonly StackTrace? Stack;
-
-            /// <summary>
-            /// Initializes a new history record.
-            /// </summary>
-            public HistoryRecord(string action, int count, bool isError, StackTrace? stack)
-            {
-                Action = action;
-                Count = count;
-                IsError = isError;
-                Stack = stack;
-            }
-
-            /// <inheritdoc />
-            public override string ToString()
-            {
-                return (IsError ? "! " : "  ") + Action + " -> " + Count;
-            }
         }
     }
 }

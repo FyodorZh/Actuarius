@@ -26,7 +26,7 @@ namespace Actuarius.Memory
 
     public static class MultiRefByteArraySpan_Ext
     {
-        public static IMultiRefByteArray GetSpan(IMultiRefByteArray source, int offset, int length)
+        public static IMultiRefByteArray Span(this IMultiRefByteArray source, int offset, int length)
         {
             return new MultiRefByteArraySpan(source, offset, length);
         }

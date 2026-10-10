@@ -33,18 +33,18 @@ namespace Actuarius.Memory
         {
         }
 
+        public IMultiRefResourceMonitor ConstructMonitor(bool collectHistory = true, bool trackLeaks = true, bool traceEnabled = true)
+        {
+            return MultiRefResourceVoidMonitor.Instance;
+        }
+
         public int Count => _length;
 
-        public bool IsValid => true;
+        public bool IsValid => _array != null!;
 
         public bool CopyTo(byte[] dst, int dstOffset, int srcOffset, int count)
         {
-            if (!ArrayHelper.CheckFromTo(_length, _offset + srcOffset, dst.Length, dstOffset, count))
-            {
-                return false;
-            }
-            Buffer.BlockCopy(_array, _offset + srcOffset, dst, dstOffset, count);
-            return true;
+            return IReadOnlyByteArray_Ext.CopyTo(this, dst, dstOffset, srcOffset, count);
         }
 
         public byte this[int id] => _array[_offset + id];
@@ -52,6 +52,5 @@ namespace Actuarius.Memory
         public byte[] ReadOnlyArray => _array;
 
         public int Offset => _offset;
-
     }
 }
