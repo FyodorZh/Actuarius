@@ -534,6 +534,23 @@
       ]
     },
     {
+      "name": "IRefCounterView",
+      "members": [
+        {
+          "sig": "RefCount:int { get; }",
+          "desc": "returns the current reference count; lock-free; O(1)"
+        },
+        {
+          "sig": "event Action<RefCounterErrorEvent, int> Error",
+          "desc": "raised after a failed operation with the failure kind and the count observed at failure"
+        },
+        {
+          "sig": "event Action<int> Updated",
+          "desc": "raised after a successful operation with the resulting count"
+        }
+      ]
+    },
+    {
       "name": "IReleasableResource",
       "members": [
         {
@@ -544,36 +561,6 @@
     }
   ],
   "types": [
-    {
-      "name": "ActionHistoryTracer",
-      "kind": "class",
-      "category": "utility",
-      "isAuxiliary": false,
-      "desc": "records ref-count events with captured stack traces for diagnosing misuse; lives in namespace Actuarius.Memory.Internal",
-      "threadSafety": "lock-free",
-      "methods": [
-        {
-          "sig": "Clear()",
-          "desc": "replaces the history with a fresh empty queue; lock-free; O(1)"
-        },
-        {
-          "sig": "Export():List<Record>",
-          "desc": "drains and returns all recorded events in order; O(n)"
-        },
-        {
-          "sig": "RecordEvent(string name, int skipFrames = 1)",
-          "desc": "records an event with a captured StackTrace into the history; lock-free; O(1)"
-        }
-      ],
-      "nested": [
-        {
-          "name": "Record",
-          "kind": "struct",
-          "isAuxiliary": true,
-          "desc": "readonly struct holding an event Action name and the captured StackTrace"
-        }
-      ]
-    },
     {
       "name": "Bucket<TObject>",
       "kind": "class",
@@ -1232,7 +1219,7 @@
       "constructors": [
         {
           "sig": "ctor(byte[] array, int offset = 0, int count = -1)",
-          "desc": "creates a ref-counted view of array starting at offset; count defaults to array.Length when negative; the range is not validated",
+          "desc": "creates a ref-counted view of array starting at offset; count defaults to array.Length - offset when negative; the range is not validated",
           "example": "var arr = new MultiRefByteArray(new byte[] { 1, 2, 3, 4, 5 }, 1, 3);"
         }
       ],
@@ -1329,7 +1316,7 @@
       "isAuxiliary": false,
       "desc": "abstract base for ref-counted resources pooled by CollectablePool; subclasses override protected OnCollected() (called when returned) and protected OnRestored() (called after revive); the ref counter starts at 0 and is revived by Restored",
       "threadSafety": "lock-free",
-      "limitations": "must be obtained through ICollectablePool.Acquire<T> because the ref counter is only initialised by Restored"
+      "limitations": "must be obtained through ICollectablePool.Acquire<T> because the ref counter is only initialised by Restored; Restored throws InvalidOperationException if the resource still has owners (Revive fails)"
     },
     {
       "name": "MultiRefResource",
@@ -1339,13 +1326,23 @@
         "IMultiRefResource"
       ],
       "isAuxiliary": false,
-      "desc": "abstract base for reference-counted resources; subclasses override protected OnReleased() which fires when the count reaches zero; misuse is reported to protected OnRefCountError (Debug.Assert by default) rather than thrown",
+      "desc": "abstract base for reference-counted resources; subclasses override protected OnReleased() which fires when the count reaches zero; ref counting is pure production code, while diagnostics live in MultiRefResourceMonitor and are only active after ConstructMonitor() is called",
       "threadSafety": "lock-free",
-      "limitations": "manual ref counting: every AddRef must be balanced by a Release, otherwise the object leaks or is used after release",
+      "limitations": "manual ref counting: every AddRef must be balanced by a Release, otherwise the object leaks or is used after release; without a constructed monitor misuse is not asserted",
+      "properties": [
+        {
+          "sig": "RefCount:IRefCounterView { get; }",
+          "desc": "returns the underlying counter view; O(1)"
+        },
+        {
+          "sig": "Monitor:MultiRefResourceMonitor? { get; }",
+          "desc": "protected; returns the live monitor created by ConstructMonitor(), or null if none exists or it was detached; O(1)"
+        }
+      ],
       "methods": [
         {
           "sig": "AddRef()",
-          "desc": "increments the owner count by one; reports AddRefOfReleasedObject if the object is already released; lock-free; O(1)"
+          "desc": "increments the owner count by one; lock-free; O(1)"
         },
         {
           "sig": "IsAlive:bool { get; }",
@@ -1353,11 +1350,78 @@
         },
         {
           "sig": "Release()",
-          "desc": "decrements the owner count; calls OnReleased() when it reaches 0; reports ReleaseOfReleasedObject on underflow; lock-free; O(1)"
+          "desc": "decrements the owner count; calls OnReleased() when it reaches 0; lock-free; O(1)"
+        },
+        {
+          "sig": "Revive():bool",
+          "desc": "protected; resets a revivable counter from 0 to 1, returning true on success; lock-free; O(1)"
+        },
+        {
+          "sig": "ConstructMonitor(bool collectHistory = true, bool trackLeaks = true, bool traceEnabled = true):MultiRefResourceMonitor",
+          "desc": "creates the diagnostics monitor bound to this resource, or returns the existing live one (a detached monitor is replaced); must be called explicitly to enable misuse reporting; lock-free; O(1)"
         },
         {
           "sig": "ToString():string",
           "desc": "returns '{TypeName}: RefCount:N'; O(1)"
+        }
+      ]
+    },
+    {
+      "name": "MultiRefResourceMonitor",
+      "kind": "class",
+      "category": "refcount",
+      "isAuxiliary": false,
+      "desc": "diagnostics monitor for a single MultiRefResource; subscribes to IRefCounterView.Error/Updated, records reference-count events into a capped history and raises the Error event when misuse is detected; when collectHistory is set each recorded event also carries a StackTrace unless TraceEnabled is false",
+      "threadSafety": "thread-safe (lock for history)",
+      "limitations": "only observes misuse after MultiRefResource.ConstructMonitor() is called; if an external owner keeps holding the monitor it cannot be collected, so leak detection is suppressed; the history holds at most the most recent 100 events",
+      "constructors": [
+        {
+          "sig": "ctor(IRefCounterView counter, string ownerName, bool collectHistory = true, bool trackLeaks = true, bool traceEnabled = true)",
+          "desc": "binds the monitor to counter and starts observing its Error/Updated events; ownerName is reported with each error; collectHistory enables event recording, trackLeaks enables finalizer leak reports, traceEnabled makes recorded events capture a StackTrace"
+        }
+      ],
+      "properties": [
+        {
+          "sig": "Counter:IRefCounterView { get; }",
+          "desc": "returns the observed counter; O(1)"
+        },
+        {
+          "sig": "CollectHistory:bool { get; }",
+          "desc": "true when reference-count events are recorded into the history"
+        },
+        {
+          "sig": "TrackLeaks:bool { get; }",
+          "desc": "true when the finalizer raises Error with Leak while the resource still has owners"
+        },
+        {
+          "sig": "TraceEnabled:bool { get; }",
+          "desc": "true when recorded events include a captured StackTrace"
+        },
+        {
+          "sig": "event Error:Action<string, ResourceUsageErrorType>",
+          "desc": "raised when misuse is detected; the first argument identifies the owning resource; handlers run synchronously on the reporting thread, except Leak which is raised on a thread-pool thread"
+        }
+      ],
+      "methods": [
+        {
+          "sig": "ExportHistory():IReadOnlyList<HistoryRecord>",
+          "desc": "returns a snapshot of the recorded reference-count history, oldest first"
+        },
+        {
+          "sig": "Clear()",
+          "desc": "drains the recorded history; reports read it without draining, so call this to drop accumulated records"
+        },
+        {
+          "sig": "Detach()",
+          "desc": "unsubscribes from the counter and suppresses ReportLeak/AssertNoUsage; the monitor records nothing afterwards"
+        },
+        {
+          "sig": "ReportLeak()",
+          "desc": "raises Error with Leak if the counter is still alive; called from the finalizer when TrackLeaks is set"
+        },
+        {
+          "sig": "AssertNoUsage()",
+          "desc": "raises Error with NoUsageAssertionFail if the counter is still alive"
         }
       ]
     },
@@ -1529,37 +1593,71 @@
       "name": "RefCounter",
       "kind": "class",
       "category": "refcount",
+      "implements": [
+        "IRefCounterView"
+      ],
       "isAuxiliary": false,
       "desc": "lock-free reference counter backed by Interlocked; used internally by MultiRefResource; lives in namespace Actuarius.Memory.Internal",
       "threadSafety": "lock-free",
+      "limitations": "AddRef is valid only for a caller that already holds a reference; Release does not clamp at zero so repeated releases drive the count negative; integer overflow is not guarded",
+      "constructors": [
+        {
+          "sig": "ctor(bool revivable)",
+          "desc": "creates a counter; revivable true starts at 0 and allows Revive, revivable false starts at 1 and makes Revive always fail"
+        }
+      ],
       "properties": [
         {
           "sig": "IsValid:bool { get; }",
           "desc": "returns true while the count is greater than 0; lock-free; O(1)"
+        },
+        {
+          "sig": "RefCount:int { get; }",
+          "desc": "returns the current reference count; lock-free; O(1)"
         }
       ],
       "methods": [
         {
           "sig": "AddRef():int",
-          "desc": "increments the count via Interlocked and returns the new count; returns 0 and leaves the count unchanged if the counter was already released; lock-free; O(1)"
-        },
-        {
-          "sig": "Init()",
-          "desc": "sets the count to 1; lock-free; O(1)"
+          "desc": "increments the count via Interlocked and returns the new count; returns 0 and leaves the count unchanged if the count is not greater than 0; lock-free; O(1)"
         },
         {
           "sig": "Release():int",
-          "desc": "decrements the count and returns the new value; returns a negative value on underflow; lock-free; O(1)"
+          "desc": "decrements the count and returns the new value; returns -1 on underflow and the count is not clamped; lock-free; O(1)"
         },
         {
           "sig": "Revive():bool",
-          "desc": "resets the count from 0 to 1 and returns true, or returns false if the count is not 0; lock-free; O(1)"
+          "desc": "resets the count from 0 to 1 and returns true; returns false if the counter is not revivable or the count is not 0; lock-free; O(1)"
         },
         {
           "sig": "ToString():string",
           "desc": "returns 'RefCount:' followed by the current count; O(1)"
         }
+      ],
+      "events": [
+        {
+          "sig": "event Action<RefCounterErrorEvent, int> Error",
+          "desc": "raised after a failed operation with the failure kind and the count observed at failure"
+        },
+        {
+          "sig": "event Action<int> Updated",
+          "desc": "raised after a successful operation with the resulting count"
+        }
       ]
+    },
+    {
+      "name": "RefCounterErrorEvent",
+      "kind": "enum",
+      "category": "refcount",
+      "isAuxiliary": true,
+      "desc": "FailedToIncrement=0, FailedToDecrement=1, FailedToRevive=2"
+    },
+    {
+      "name": "ResourceUsageErrorType",
+      "kind": "enum",
+      "category": "refcount",
+      "isAuxiliary": true,
+      "desc": "AddRefOfReleasedObject=0, ReleaseOfReleasedObject=1, WrongReviveUsage=2, Leak=3, NoUsageAssertionFail=4, Unknown=5"
     },
     {
       "name": "ReleasableResourceDisposer<TResource>",
@@ -1815,6 +1913,7 @@
   ],
   "gotchas": [
     "Acquire(size) on RawArray pools returns an array of length NextPow2(size), which is larger than requested when size is not a power of two.",
+    "AddRef on a RefCounter requires the caller to already hold a reference; it is not a way to acquire a released counter.",
     "ByteArrayPool.Release is a no-op: the wrapped byte[] returns to the raw pool only when the MultiRefByteArrayFromPool reference count reaches zero.",
     "ByteSinkToArray.Put writes at index _position (ignoring the offset), while PutMany writes at _position + _offset; prefer PutMany with a non-zero offset.",
     "ByteSinkToManyArrays.Finish publishes only the current block when it is exactly full; a partially-filled trailing block is silently dropped.",
@@ -1822,9 +1921,12 @@
     "CollectablePool supports at most 1000 distinct resource types; the fixed internal constructors array throws IndexOutOfRangeException beyond that.",
     "MultiRefByteArray and StaticByteArray do not validate offset/count in the constructor; out-of-range reads throw IndexOutOfRangeException at access time.",
     "MultiRefByteArraySpan copies source.Array and source.Offset into the base before validating the range, so an invalid range still throws IndexOutOfRangeException after the base fields are already set.",
-    "MultiRefResource misuse (double Release, AddRef after Release) does not throw; the default OnRefCountError only Debug.Asserts and lets execution continue.",
+    "MultiRefResource misuse (double Release, AddRef after Release) does not throw; MultiRefResourceMonitor raises its Error event instead, and it reports nothing until MultiRefResource.ConstructMonitor() is called.",
     "NoPool<TResource> and DelegateNoPool<TResource> never reuse objects; Release is a no-op, so pool-based code still runs but allocates every time.",
     "PoolableResourceDisposer.Resource and ReleasableResourceDisposer.Resource throw NullReferenceException after Dispose; capture the resource before disposing.",
+    "RefCounter notifications (Updated, Error) are best-effort: handlers run synchronously on the calling thread and are not serialized.",
+    "RefCounter.AddRef returns 0 on failure, while RefCounter.Release returns 0 when the last reference is released; the meaning of 0 differs per method.",
+    "RefCounter.Release does not clamp at zero, so repeated releases drive the count negative and each reports FailedToDecrement.",
     "StaticByteArray and StaticReadOnlyByteArray implement the IMultiRef* interfaces but Release and AddRef are no-ops and IsAlive is always true.",
     "The ByteArraysPool from MemoryRental.Shared wraps a RawArrayConcurrentPool<byte>, so Acquire returns arrays of size NextPow2(requested).",
     "The MemoryRental.Shared array-pool capacity delegate returns 0 for sizes above 1MiB, so very large arrays fall back to per-Acquire allocation."
@@ -2082,6 +2184,11 @@
       "from": "RawArrayPool<T>",
       "to": "Pool<T[], int>",
       "rel": "extends"
+    },
+    {
+      "from": "RefCounter",
+      "to": "IRefCounterView",
+      "rel": "implements"
     },
     {
       "from": "RefCounter",

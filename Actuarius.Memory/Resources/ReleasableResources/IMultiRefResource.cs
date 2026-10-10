@@ -1,4 +1,6 @@
-﻿namespace Actuarius.Memory
+﻿using Actuarius.Memory.Internal;
+
+namespace Actuarius.Memory
 {
     /// <summary>
     /// Объект у которого есть много владельцев
@@ -14,6 +16,11 @@
         /// Увеличивает число владельцев на 1
         /// </summary>
         void AddRef();
+    }
+
+    public interface IMultiRefResource_Debug : IMultiRefResource
+    {
+        IRefCounterView RefCount { get; }
     }
     
     public static class IMultiRefResource_Ext

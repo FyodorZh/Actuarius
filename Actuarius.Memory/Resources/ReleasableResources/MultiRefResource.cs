@@ -1,147 +1,91 @@
-//#define TRACE_HISTORY
-
-#if TRACE_HISTORY
-    #define TRACE_HISTORY_ALL
-    #define TRACE_DESTRUCTOR
-    #define TRACE_FILTER_BY_TYPE
-#elif DEBUG
-    //#define TRACE_DESTRUCTOR
-#endif
-
-using System.Diagnostics;
+using System.Threading;
 using Actuarius.Memory.Internal;
-
 
 namespace Actuarius.Memory
 {
-    public abstract class MultiRefResource : IMultiRefResource
+    public abstract class MultiRefResource : IMultiRefResource_Debug
     {
-        protected enum ResourceUsageErrorType
+        private readonly RefCounter _refCounter;
+        private MultiRefResourceMonitor? _monitor;
+
+        public IRefCounterView RefCount => _refCounter;
+
+        protected MultiRefResource(bool revivable)
         {
-            AddRefOfReleasedObject,
-            ReleaseOfReleasedObject,
-            WrongReviveUsage,
-            Leak,
-            NoUsageAssertionFail,
+            _refCounter = new RefCounter(revivable);
         }
-
-        private readonly RefCounter _refCounter = new RefCounter();
-
-        protected virtual bool TraceEnabled => true;
-
-#if TRACE_HISTORY
-        private readonly ActionHistoryTracer _tracer = new ActionHistoryTracer();
-
-        private void Trace(string name)
-        {
-            #if TRACE_FILTER_BY_TYPE
-            if (TraceEnabled)
-            #endif
-            {
-                _tracer.RecordEvent(name);
-            }
-        }
-
-        private ActionHistoryTracer? GetTracer() => _tracer;
-#else
-        private ActionHistoryTracer? GetTracer() => null;
-#endif
-
-        protected MultiRefResource(bool noInit)
-        {
-            if (!noInit)
-            {
-#if TRACE_HISTORY
-                Trace("Ctor");
-#endif
-                _refCounter.Init();
-            }
-        }
-
-#if TRACE_DESTRUCTOR
-        ~MultiRefResource()
-        {
-            if (_refCounter.IsValid)
-            {
-                OnRefCountError(ResourceUsageErrorType.Leak, null);
-            }
-        }
-#endif
 
         protected abstract void OnReleased();
-
-        protected virtual void OnRefCountError(ResourceUsageErrorType error, ActionHistoryTracer? tracer)
-        {
-            string text = $"Invalid MultiRef object of type {GetType()} usage. Error = {error}";
-//             Log.w(text);
-// #if TRACE_HISTORY
-//             var history = _tracer.Export();
-//             foreach (var stack in history)
-//             {
-//                 Log.w(stack.Action + "\n" + stack.Stack.ToString());
-//             }
-// #endif
-            Debug.Assert(false, text);
-        }
 
         public bool IsAlive => _refCounter.IsValid;
 
         public void AddRef()
         {
-#if TRACE_HISTORY_ALL
-            Trace("AddRef");
-#endif
-            if (_refCounter.AddRef() == 0)
-            {
-                OnRefCountError(ResourceUsageErrorType.AddRefOfReleasedObject, GetTracer());
-            }
+            _refCounter.AddRef();
         }
 
         public void Release()
         {
-            int cnt = _refCounter.Release();
-
-#if TRACE_HISTORY
-        #if TRACE_HISTORY_ALL
-            Trace("Release");
-        #else
-            if (cnt == 0)
-            {
-                Trace("Release");
-            }
-        #endif
-#endif
-
-            if (cnt == 0)
+            if (_refCounter.Release() == 0)
             {
                 OnReleased();
-            }
-            else if (cnt < 0)
-            {
-                OnRefCountError(ResourceUsageErrorType.ReleaseOfReleasedObject, GetTracer());
             }
         }
 
         protected bool Revive()
         {
-#if TRACE_HISTORY
-            _tracer.Clear();
-            Trace("Revive");
-#endif
-            if (!_refCounter.Revive())
-            {
-                OnRefCountError(ResourceUsageErrorType.WrongReviveUsage, GetTracer());
-                return false;
-            }
-
-            return true;
+            return _refCounter.Revive();
         }
 
-        protected void AssertNoUsage()
+        /// <summary>
+        /// Creates (or returns the existing) diagnostics monitor bound to this resource.
+        /// Pass the returned monitor to the owner that needs to observe misuse.
+        /// </summary>
+        /// <param name="collectHistory">Whether the monitor records reference-count events. Defaults to <c>true</c>.</param>
+        /// <param name="trackLeaks">Whether the monitor's finalizer reports leaks. Defaults to <c>true</c>.</param>
+        /// <param name="traceEnabled">Whether recorded events include a captured stack trace. Defaults to <c>true</c>.</param>
+        /// <remarks>
+        /// The options apply only when a monitor is actually created; if a live monitor already exists it is
+        /// returned as-is. A monitor that has been detached is replaced with a fresh one, so calling
+        /// <see cref="MultiRefResourceMonitor.Detach"/> followed by this method re-enables diagnostics.
+        /// </remarks>
+        public MultiRefResourceMonitor ConstructMonitor(
+            bool collectHistory = true,
+            bool trackLeaks = true,
+            bool traceEnabled = true)
         {
-            if (_refCounter.IsValid)
+            while (true)
             {
-                OnRefCountError(ResourceUsageErrorType.NoUsageAssertionFail, GetTracer());
+                var current = Volatile.Read(ref _monitor);
+
+                if (current == null || current.IsDetached)
+                {
+                    var created = new MultiRefResourceMonitor(
+                        _refCounter, GetType().ToString(), collectHistory, trackLeaks, traceEnabled);
+                    var existing = Interlocked.CompareExchange(ref _monitor, created, current);
+                    if (ReferenceEquals(existing, current))
+                    {
+                        return created;
+                    }
+
+                    created.Detach();
+                    continue;
+                }
+
+                if (!current.IsDetached)
+                {
+                    return current;
+                }
+            }
+        }
+
+        /// <summary>Gets the live monitor created by <see cref="ConstructMonitor"/>, or null if none exists or it was detached.</summary>
+        protected MultiRefResourceMonitor? Monitor
+        {
+            get
+            {
+                var monitor = Volatile.Read(ref _monitor);
+                return monitor != null && !monitor.IsDetached ? monitor : null;
             }
         }
 

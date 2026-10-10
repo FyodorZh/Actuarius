@@ -1,3 +1,5 @@
+using System;
+
 namespace Actuarius.Memory
 {
     public abstract class MultiRefCollectableResource<TSelf> : MultiRefResource, ICollectableResource<TSelf>
@@ -27,8 +29,13 @@ namespace Actuarius.Memory
 
         void ICollectableResource<TSelf>.Restored(IPoolSink<TSelf> pool)
         {
+            if (!Revive())
+            {
+                throw new InvalidOperationException(
+                    $"Cannot restore {GetType()} because it still has owners.");
+            }
+
             _owner = pool;
-            Revive();
             OnRestored();
         }
     }

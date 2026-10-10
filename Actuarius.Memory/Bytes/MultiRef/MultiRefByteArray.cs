@@ -13,7 +13,7 @@ namespace Actuarius.Memory
         {
             _array = array;
             _offset = offset;
-            _count = count < 0 ? array.Length : count;
+            _count = count < 0 ? array.Length - offset : count;
         }
 
         protected override void OnReleased()

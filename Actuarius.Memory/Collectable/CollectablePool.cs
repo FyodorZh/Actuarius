@@ -16,7 +16,7 @@ namespace Actuarius.Memory
             public static readonly int TypeId = Interlocked.Increment(ref _nextTypeId); 
         }
         
-        private readonly Func<ICollectableResource>?[] _constructors = new Func<ICollectableResource>?[MaxTypeId];
+        private readonly Func<ICollectableResource>?[] _constructors = new Func<ICollectableResource>?[MaxTypeId + 1];
         private readonly CollectablePoolCore _pool;
            
         public CollectablePool(Func<IConcurrentUnorderedCollection<ICollectableResource>> singleTypePool)
