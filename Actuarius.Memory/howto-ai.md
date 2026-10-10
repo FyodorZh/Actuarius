@@ -5,7 +5,7 @@
     "lang": 9,
     "nullable": true
   },
-  "philosophy": "A memory-management library built around object pooling and reference-counted byte buffers. Pools are modelled as IPool/IPoolSink pairs so callers either release manually or wrap the resource in a PoolableResourceDisposer, and a global MemoryRental.Shared singleton wires standard byte-array, generic-object and collectable pools. Byte arrays use explicit reference counting via MultiRefResource (AddRef/Release) and adapt raw byte[] pools through MultiRefByteArrayFromPool, keeping pooling and sharing two orthogonal concerns; most types live in namespace Actuarius.Memory.",
+  "philosophy": "A memory-management library built around object pooling and reference-counted byte buffers. Pools are modelled as IPool/IPoolSink pairs so callers either release manually or wrap the resource in a PoolableResourceDisposer, and a global MemoryRental.Shared singleton wires standard byte-array, generic-object and collectable pools. Byte arrays use explicit reference counting via MultiRefResource (AddRef/Release) and adapt raw byte[] pools through MultiRefByteArrayFromPool, keeping pooling and sharing two orthogonal concerns; most types live in namespace Actuarius.Memory. Reference-counting diagnostics are opt-in via MultiRefResource.ConstructMonitor, and the *Guard types (MultiRefByteArrayGuard, ByteArrayConcurrentPoolGuard) wrap resources and pools to surface misuse and leaks in tests.",
   "quickPick": [
     {
       "need": "Auto-release a pooled resource at the end of a using block",
@@ -14,6 +14,10 @@
     {
       "need": "Create a read-only view over a fixed byte[] without reference counting",
       "use": "StaticReadOnlyByteArray"
+    },
+    {
+      "need": "Detect use-after-release or double-release on a ref-counted resource",
+      "use": "MultiRefResourceMonitor"
     },
     {
       "need": "Get a stable unique int id per closed generic type",
@@ -54,6 +58,10 @@
     {
       "need": "Use a single global entry point wiring all standard pools",
       "use": "MemoryRental"
+    },
+    {
+      "need": "Wrap a byte-array pool to catch misuse and leaks in tests",
+      "use": "ByteArrayConcurrentPoolGuard"
     },
     {
       "need": "Write bytes across multiple pooled arrays",
@@ -232,6 +240,22 @@
           "Destination is a chain of pooled arrays",
           "Yes",
           "ByteSinkToManyArrays<TArray>"
+        ]
+      ]
+    ],
+    [
+      "What do you need for diagnostics or testing?",
+      "Detect misuse of pooled resources",
+      [
+        [
+          "Which resource?",
+          "Byte arrays from a pool",
+          "ByteArrayConcurrentPoolGuard"
+        ],
+        [
+          "Which resource?",
+          "Any ref-counted resource",
+          "MultiRefResourceMonitor"
         ]
       ]
     ]
@@ -448,8 +472,25 @@
           "desc": "increments the owner count by one; must be balanced with a Release; lock-free; O(1)"
         },
         {
+          "sig": "ConstructMonitor(bool collectHistory = true, bool trackLeaks = true, bool traceEnabled = true):IMultiRefResourceMonitor",
+          "desc": "creates the diagnostics monitor bound to this resource, or returns the existing live one; must be called explicitly to enable misuse reporting; lock-free; O(1)"
+        },
+        {
           "sig": "IsAlive:bool { get; }",
           "desc": "returns true while at least one owner holds the object; lock-free; O(1)"
+        }
+      ]
+    },
+    {
+      "name": "IMultiRefResourceMonitor",
+      "members": [
+        {
+          "sig": "ExportHistory():IReadOnlyList<ResourceUsageRecord>",
+          "desc": "returns a snapshot of the recorded reference-count events, oldest first; returns an empty list when history collection is disabled; O(n)"
+        },
+        {
+          "sig": "event Action<string, ResourceUsageErrorType> Error",
+          "desc": "raised when misuse is detected; the first argument identifies the owning resource; handlers run synchronously on the reporting thread, except Leak which is raised on a thread-pool thread"
         }
       ]
     },
@@ -668,8 +709,56 @@
       "threadSafety": "thread-safe (lock)",
       "constructors": [
         {
-          "sig": "ctor(IConcurrentPool<byte[], int> rawPool)",
+          "sig": "ctor(IConcurrentPool<byte[], int> bytesPool)",
           "desc": "creates a byte-array pool over the given raw array pool"
+        }
+      ]
+    },
+    {
+      "name": "ByteArrayConcurrentPoolGuard",
+      "kind": "class",
+      "category": "pool",
+      "implements": [
+        "IConcurrentPool<IMultiRefByteArray, int>"
+      ],
+      "isAuxiliary": false,
+      "desc": "debug wrapper around an IConcurrentPool<IMultiRefByteArray, int> for tests: hands out MultiRefByteArrayGuard instances and aggregates their misuse reports through Error/ErrorCount",
+      "threadSafety": "thread-safe (lock)",
+      "limitations": "Release(IMultiRefByteArray) is a no-op; acquired resources must be released via IMultiRefByteArray.Release(); it only ever issues MultiRefByteArrayGuard instances and never returns anything to the wrapped pool",
+      "constructors": [
+        {
+          "sig": "ctor(IConcurrentPool<IMultiRefByteArray, int> pool, bool collectHistory = true, bool traceEnabled = true)",
+          "desc": "creates the guard around pool; throws ArgumentNullException if pool is null; collectHistory and traceEnabled configure the per-resource monitors"
+        }
+      ],
+      "properties": [
+        {
+          "sig": "ErrorCount:int { get; }",
+          "desc": "returns the number of misuse reports raised by guards created by this pool; lock-free; O(1)"
+        }
+      ],
+      "methods": [
+        {
+          "sig": "Acquire(int param0):IMultiRefByteArray",
+          "desc": "acquires from the wrapped pool and returns a new MultiRefByteArrayGuard with a constructed monitor; caller takes ownership; O(1)"
+        },
+        {
+          "sig": "AcquireEx(int param0):(IMultiRefByteArray resource, IPoolSink<IMultiRefByteArray> poolSink)",
+          "desc": "acquires a guarded resource and returns it with this pool as sink; the sink's Release is a no-op; O(1)"
+        },
+        {
+          "sig": "AssertNoOutstanding()",
+          "desc": "reports NoUsageAssertionFail through Error for every acquired guard that was not released; call at the end of a test"
+        },
+        {
+          "sig": "Release(IMultiRefByteArray? resource)",
+          "desc": "is a no-op for null or a MultiRefByteArrayGuard; throws InvalidOperationException if resource is any other type"
+        }
+      ],
+      "events": [
+        {
+          "sig": "event Action<string, ResourceUsageErrorType> Error",
+          "desc": "raised whenever a guard created by this pool reports misuse; the first argument identifies the guard"
         }
       ]
     },
@@ -686,7 +775,7 @@
       "limitations": "Release(IMultiRefByteArray) is a no-op; the resource must be released via its own Release() (ref count) or the raw array is never returned",
       "constructors": [
         {
-          "sig": "ctor(IPool<byte[], int> rawPool)",
+          "sig": "ctor(IPool<byte[], int> bytesPool)",
           "desc": "creates a byte-array pool over the given raw array pool"
         }
       ],
@@ -1052,15 +1141,15 @@
       "name": "EmptyByteArray",
       "kind": "class",
       "category": "array",
-      "base": "MultiRefByteArray",
+      "base": "StaticByteArray",
       "isAuxiliary": false,
-      "desc": "singleton zero-length MultiRefByteArray equivalent to new byte[0]; OnReleased does nothing so it stays valid forever",
+      "desc": "singleton zero-length StaticByteArray equivalent to new byte[0]; there is no reference counting, IsValid is true and Release and AddRef are no-ops",
       "threadSafety": "lock-free",
       "properties": [
         {
           "sig": "Instance:EmptyByteArray { get; }",
           "desc": "returns the shared zero-length byte array; never release it",
-          "example": "MultiRefByteArray empty = EmptyByteArray.Instance;"
+          "example": "IMultiRefByteArray empty = EmptyByteArray.Instance;"
         }
       ]
     },
@@ -1275,6 +1364,59 @@
       ]
     },
     {
+      "name": "MultiRefByteArrayGuard",
+      "kind": "class",
+      "category": "array",
+      "base": "MultiRefResource",
+      "implements": [
+        "IMultiRefByteArray"
+      ],
+      "isAuxiliary": false,
+      "desc": "debug wrapper around an IMultiRefByteArray that owns the wrapped resource's single reference and releases it when its own count reaches zero; accesses throw ObjectDisposedException after release",
+      "threadSafety": "lock-free",
+      "limitations": "assumes sole ownership of the wrapped resource, so wrap only a freshly acquired single reference; after Release the wrapper is permanently disposed and all members throw ObjectDisposedException",
+      "constructors": [
+        {
+          "sig": "ctor(IMultiRefByteArray core)",
+          "desc": "wraps core and takes ownership of its single reference; the wrapped resource is released when the guard's count reaches zero"
+        }
+      ],
+      "properties": [
+        {
+          "sig": "Array:byte[] { get; }",
+          "desc": "returns the wrapped backing byte[]; throws ObjectDisposedException if the guard was released"
+        },
+        {
+          "sig": "Count:int { get; }",
+          "desc": "returns the wrapped byte count; throws ObjectDisposedException if the guard was released; O(1)"
+        },
+        {
+          "sig": "IsValid:bool { get; }",
+          "desc": "returns the wrapped validity, or false when the guard was released; O(1)"
+        },
+        {
+          "sig": "Offset:int { get; }",
+          "desc": "returns the wrapped offset; throws ObjectDisposedException if the guard was released; O(1)"
+        },
+        {
+          "sig": "ReadOnlyArray:byte[] { get; }",
+          "desc": "returns the wrapped backing byte[]; throws ObjectDisposedException if the guard was released"
+        }
+      ],
+      "indexers": [
+        {
+          "sig": "this[int id]:byte { get; set; }",
+          "desc": "gets or sets the wrapped byte at logical index id; throws ObjectDisposedException if the guard was released"
+        }
+      ],
+      "methods": [
+        {
+          "sig": "CopyTo(byte[] dst, int dstOffset, int srcOffset, int count):bool",
+          "desc": "copies count bytes from the wrapped array into dst; throws ObjectDisposedException if the guard was released; O(count)"
+        }
+      ]
+    },
+    {
       "name": "MultiRefByteArraySpan",
       "kind": "class",
       "category": "array",
@@ -1287,20 +1429,6 @@
           "sig": "ctor(IMultiRefByteArray source, int offset, int count)",
           "desc": "creates a view of source[offset..offset+count) and acquires an extra reference on source; throws IndexOutOfRangeException if the range is invalid",
           "example": "var span = new MultiRefByteArraySpan(source, 2, 5);"
-        }
-      ]
-    },
-    {
-      "name": "MultiRefByteArraySpan_Ext",
-      "kind": "staticClass",
-      "category": "utility",
-      "isAuxiliary": false,
-      "desc": "holds the static GetSpan factory for sub-range byte-array views",
-      "methods": [
-        {
-          "sig": "GetSpan(IMultiRefByteArray source, int offset, int length):IMultiRefByteArray",
-          "desc": "returns a new MultiRefByteArraySpan over source[offset..offset+length); is a static method, not an extension method, so call it as MultiRefByteArraySpan_Ext.GetSpan(source, offset, length)",
-          "example": "IMultiRefByteArray view = MultiRefByteArraySpan_Ext.GetSpan(source, 2, 5);"
         }
       ]
     },
@@ -1333,10 +1461,6 @@
         {
           "sig": "RefCount:IRefCounterView { get; }",
           "desc": "returns the underlying counter view; O(1)"
-        },
-        {
-          "sig": "Monitor:MultiRefResourceMonitor? { get; }",
-          "desc": "protected; returns the live monitor created by ConstructMonitor(), or null if none exists or it was detached; O(1)"
         }
       ],
       "methods": [
@@ -1345,20 +1469,16 @@
           "desc": "increments the owner count by one; lock-free; O(1)"
         },
         {
+          "sig": "ConstructMonitor(bool collectHistory = true, bool trackLeaks = true, bool traceEnabled = true):MultiRefResourceMonitor",
+          "desc": "creates the diagnostics monitor bound to this resource, or returns the existing live one (a detached monitor is replaced); must be called explicitly to enable misuse reporting; lock-free; O(1)"
+        },
+        {
           "sig": "IsAlive:bool { get; }",
           "desc": "returns true while the reference count is greater than 0; lock-free; O(1)"
         },
         {
           "sig": "Release()",
           "desc": "decrements the owner count; calls OnReleased() when it reaches 0; lock-free; O(1)"
-        },
-        {
-          "sig": "Revive():bool",
-          "desc": "protected; resets a revivable counter from 0 to 1, returning true on success; lock-free; O(1)"
-        },
-        {
-          "sig": "ConstructMonitor(bool collectHistory = true, bool trackLeaks = true, bool traceEnabled = true):MultiRefResourceMonitor",
-          "desc": "creates the diagnostics monitor bound to this resource, or returns the existing live one (a detached monitor is replaced); must be called explicitly to enable misuse reporting; lock-free; O(1)"
         },
         {
           "sig": "ToString():string",
@@ -1370,6 +1490,9 @@
       "name": "MultiRefResourceMonitor",
       "kind": "class",
       "category": "refcount",
+      "implements": [
+        "IMultiRefResourceMonitor"
+      ],
       "isAuxiliary": false,
       "desc": "diagnostics monitor for a single MultiRefResource; subscribes to IRefCounterView.Error/Updated, records reference-count events into a capped history and raises the Error event when misuse is detected; when collectHistory is set each recorded event also carries a StackTrace unless TraceEnabled is false",
       "threadSafety": "thread-safe (lock for history)",
@@ -1404,7 +1527,7 @@
       ],
       "methods": [
         {
-          "sig": "ExportHistory():IReadOnlyList<HistoryRecord>",
+          "sig": "ExportHistory():IReadOnlyList<ResourceUsageRecord>",
           "desc": "returns a snapshot of the recorded reference-count history, oldest first"
         },
         {
@@ -1416,12 +1539,37 @@
           "desc": "unsubscribes from the counter and suppresses ReportLeak/AssertNoUsage; the monitor records nothing afterwards"
         },
         {
-          "sig": "ReportLeak()",
-          "desc": "raises Error with Leak if the counter is still alive; called from the finalizer when TrackLeaks is set"
-        },
-        {
           "sig": "AssertNoUsage()",
           "desc": "raises Error with NoUsageAssertionFail if the counter is still alive"
+        }
+      ]
+    },
+    {
+      "name": "MultiRefResourceVoidMonitor",
+      "kind": "class",
+      "category": "refcount",
+      "implements": [
+        "IMultiRefResourceMonitor"
+      ],
+      "isAuxiliary": false,
+      "desc": "no-op IMultiRefResourceMonitor singleton returned by resources that cannot report misuse, such as StaticReadOnlyByteArray",
+      "threadSafety": "lock-free",
+      "properties": [
+        {
+          "sig": "Instance:MultiRefResourceVoidMonitor { get; }",
+          "desc": "returns the shared no-op monitor"
+        }
+      ],
+      "methods": [
+        {
+          "sig": "ExportHistory():IReadOnlyList<ResourceUsageRecord>",
+          "desc": "always returns an empty list"
+        }
+      ],
+      "events": [
+        {
+          "sig": "event Action<string, ResourceUsageErrorType> Error",
+          "desc": "declared but never raised"
         }
       ]
     },
@@ -1653,13 +1801,6 @@
       "desc": "FailedToIncrement=0, FailedToDecrement=1, FailedToRevive=2"
     },
     {
-      "name": "ResourceUsageErrorType",
-      "kind": "enum",
-      "category": "refcount",
-      "isAuxiliary": true,
-      "desc": "AddRefOfReleasedObject=0, ReleaseOfReleasedObject=1, WrongReviveUsage=2, Leak=3, NoUsageAssertionFail=4, Unknown=5"
-    },
-    {
       "name": "ReleasableResourceDisposer<TResource>",
       "kind": "struct",
       "category": "adapter",
@@ -1686,6 +1827,51 @@
         {
           "sig": "Dispose()",
           "desc": "atomically calls Release() on the wrapped resource and nulls the held reference so a second Dispose is a no-op"
+        }
+      ]
+    },
+    {
+      "name": "ResourceUsageErrorType",
+      "kind": "enum",
+      "category": "refcount",
+      "isAuxiliary": true,
+      "desc": "AddRefOfReleasedObject=0, ReleaseOfReleasedObject=1, WrongReviveUsage=2, Leak=3, NoUsageAssertionFail=4, Unknown=5"
+    },
+    {
+      "name": "ResourceUsageRecord",
+      "kind": "struct",
+      "category": "refcount",
+      "isAuxiliary": false,
+      "desc": "a single recorded reference-count event exported by MultiRefResourceMonitor.ExportHistory",
+      "threadSafety": "not thread-safe",
+      "constructors": [
+        {
+          "sig": "ctor(string action, int count, bool isError, StackTrace? stack)",
+          "desc": "creates a record of the named operation with the observed count, an error flag and an optional captured stack"
+        }
+      ],
+      "properties": [
+        {
+          "sig": "Action:string { get; }",
+          "desc": "returns the inferred operation name, such as AddRef, Release or ReleaseOfReleasedObject"
+        },
+        {
+          "sig": "Count:int { get; }",
+          "desc": "returns the reference count observed for the event"
+        },
+        {
+          "sig": "IsError:bool { get; }",
+          "desc": "returns true when the event was a failure"
+        },
+        {
+          "sig": "Stack:StackTrace? { get; }",
+          "desc": "returns the captured stack trace, or null when stack tracing is disabled"
+        }
+      ],
+      "methods": [
+        {
+          "sig": "ToString():string",
+          "desc": "returns two leading spaces, or '! ' for an error, followed by the action and count; O(1)"
         }
       ]
     },
@@ -1790,6 +1976,10 @@
           "desc": "is a no-op because there is no reference counting; O(1)"
         },
         {
+          "sig": "ConstructMonitor(bool collectHistory = true, bool trackLeaks = true, bool traceEnabled = true):IMultiRefResourceMonitor",
+          "desc": "ignores the arguments and returns the shared MultiRefResourceVoidMonitor.Instance; static arrays have no reference counting to diagnose"
+        },
+        {
           "sig": "CopyTo(byte[] dst, int dstOffset, int srcOffset, int count):bool",
           "desc": "copies count bytes into dst; returns false if the ranges are invalid; O(count)"
         },
@@ -1816,21 +2006,15 @@
       "name": "VoidByteArray",
       "kind": "class",
       "category": "array",
-      "base": "MultiRefByteArray",
+      "base": "StaticByteArray",
       "isAuxiliary": false,
-      "desc": "singleton MultiRefByteArray equivalent to a null byte[]; IsValid is false and CopyTo always returns false",
+      "desc": "singleton StaticByteArray equivalent to a null byte[]; IsValid is false and the inherited CopyTo always returns false",
       "threadSafety": "lock-free",
       "properties": [
         {
-          "sig": "Instance:MultiRefByteArray { get; }",
-          "desc": "returns the shared invalid byte array, typed as MultiRefByteArray",
-          "example": "MultiRefByteArray invalid = VoidByteArray.Instance;"
-        }
-      ],
-      "methods": [
-        {
-          "sig": "CopyTo(byte[] dst, int dstOffset, int srcOffset, int count):bool",
-          "desc": "always returns false"
+          "sig": "Instance:VoidByteArray { get; }",
+          "desc": "returns the shared invalid byte array, typed as VoidByteArray",
+          "example": "IMultiRefByteArray invalid = VoidByteArray.Instance;"
         }
       ]
     }
@@ -1863,6 +2047,16 @@
       ]
     },
     {
+      "for": "IMultiRefByteArray",
+      "members": [
+        {
+          "sig": "Span(this IMultiRefByteArray source, int offset, int length):IMultiRefByteArray",
+          "desc": "returns a new MultiRefByteArraySpan over source[offset..offset+length) and acquires an extra reference on source; throws IndexOutOfRangeException if the range is invalid",
+          "example": "IMultiRefByteArray view = source.Span(2, 5);"
+        }
+      ]
+    },
+    {
       "for": "IMultiRefResource",
       "members": [
         {
@@ -1891,6 +2085,15 @@
       ]
     },
     {
+      "for": "IReadOnlyByteArray",
+      "members": [
+        {
+          "sig": "CopyTo(this IReadOnlyByteArray src, byte[] dst, int dstOffset, int srcOffset, int count):bool",
+          "desc": "copies count bytes from src at srcOffset into dst at dstOffset; returns false if the object is released or any range is invalid; O(count)"
+        }
+      ]
+    },
+    {
       "for": "IReadOnlyBytes",
       "members": [
         {
@@ -1914,14 +2117,17 @@
   "gotchas": [
     "Acquire(size) on RawArray pools returns an array of length NextPow2(size), which is larger than requested when size is not a power of two.",
     "AddRef on a RefCounter requires the caller to already hold a reference; it is not a way to acquire a released counter.",
+    "ByteArrayConcurrentPoolGuard.Release is a no-op: resources acquired from it must be released via IMultiRefByteArray.Release(), not pool.Release().",
     "ByteArrayPool.Release is a no-op: the wrapped byte[] returns to the raw pool only when the MultiRefByteArrayFromPool reference count reaches zero.",
     "ByteSinkToArray.Put writes at index _position (ignoring the offset), while PutMany writes at _position + _offset; prefer PutMany with a non-zero offset.",
     "ByteSinkToManyArrays.Finish publishes only the current block when it is exactly full; a partially-filled trailing block is silently dropped.",
     "ByteSourceFromStream.TryPop casts Stream.ReadByte to byte, so an early EOF (ReadByte returns -1) yields the value 255 while countToRead is still positive.",
     "CollectablePool supports at most 1000 distinct resource types; the fixed internal constructors array throws IndexOutOfRangeException beyond that.",
     "MultiRefByteArray and StaticByteArray do not validate offset/count in the constructor; out-of-range reads throw IndexOutOfRangeException at access time.",
+    "MultiRefByteArrayGuard takes ownership of the single reference of the wrapped resource; releasing the guard releases the inner resource exactly once.",
     "MultiRefByteArraySpan copies source.Array and source.Offset into the base before validating the range, so an invalid range still throws IndexOutOfRangeException after the base fields are already set.",
     "MultiRefResource misuse (double Release, AddRef after Release) does not throw; MultiRefResourceMonitor raises its Error event instead, and it reports nothing until MultiRefResource.ConstructMonitor() is called.",
+    "MultiRefResourceVoidMonitor never reports errors; static arrays (StaticReadOnlyByteArray) return it from ConstructMonitor.",
     "NoPool<TResource> and DelegateNoPool<TResource> never reuse objects; Release is a no-op, so pool-based code still runs but allocates every time.",
     "PoolableResourceDisposer.Resource and ReleasableResourceDisposer.Resource throw NullReferenceException after Dispose; capture the resource before disposing.",
     "RefCounter notifications (Updated, Error) are best-effort: handlers run synchronously on the calling thread and are not serialized.",
@@ -1932,8 +2138,9 @@
     "The MemoryRental.Shared array-pool capacity delegate returns 0 for sizes above 1MiB, so very large arrays fall back to per-Acquire allocation."
   ],
   "commonMistakes": [
+    "Calling ByteArrayConcurrentPoolGuard.Release expecting the resource to be released; release the IMultiRefByteArray itself instead.",
     "Calling ByteArrayPool.Release and expecting the raw byte[] to be returned; the wrapper reference count must reach zero instead.",
-    "Calling GetSpan as an extension method (source.GetSpan(...)); it is a static method on MultiRefByteArraySpan_Ext.",
+    "Calling GetSpan on a MultiRefByteArray; the sub-range helper is now the extension method Span, called as source.Span(offset, length).",
     "Forgetting to call Release() on an acquired MultiRefByteArray, leaking the pooled byte[] forever.",
     "Holding a MultiRefByteArray past its Release and reading it, which throws NullReferenceException because the backing array is nulled.",
     "Ignoring the bool returned by Put/PutMany/TryPop/TakeMany; failure means the data was not written or read.",
@@ -1960,8 +2167,12 @@
       "code": "var pool = new BufferedPool<MyObject>(bucketSize: 100, distributionLevel: 10, () => new MyObject()); MyObject o = pool.Acquire(); pool.Release(o);"
     },
     {
-      "goal": "Create a sub-range view of a byte array with GetSpan",
-      "code": "var src = new StaticByteArray(new byte[] { 0, 1, 2, 3, 4 }); IMultiRefByteArray view = MultiRefByteArraySpan_Ext.GetSpan(src, 1, 3); byte b = view[0]; view.Release();"
+      "goal": "Create a sub-range view of a byte array with the Span extension",
+      "code": "var src = new StaticByteArray(new byte[] { 0, 1, 2, 3, 4 }); IMultiRefByteArray view = src.Span(1, 3); byte b = view[0]; view.Release();"
+    },
+    {
+      "goal": "Detect misuse of a byte-array pool in tests with the guard",
+      "code": "var guardPool = new ByteArrayConcurrentPoolGuard(realByteArrayPool); IMultiRefByteArray bytes = guardPool.Acquire(16); bytes.Release(); guardPool.AssertNoOutstanding(); bool clean = guardPool.ErrorCount == 0;"
     },
     {
       "goal": "Drain a byte source gracefully until TryPop returns false",
@@ -2004,6 +2215,21 @@
       "from": "ByteArrayConcurrentPool",
       "to": "IConcurrentPool<IMultiRefByteArray, int>",
       "rel": "implements"
+    },
+    {
+      "from": "ByteArrayConcurrentPoolGuard",
+      "to": "IConcurrentPool<IMultiRefByteArray, int>",
+      "rel": "implements"
+    },
+    {
+      "from": "ByteArrayConcurrentPoolGuard",
+      "to": "MultiRefByteArrayGuard",
+      "rel": "creates in Acquire/AcquireEx"
+    },
+    {
+      "from": "ByteArrayConcurrentPoolGuard",
+      "to": "MultiRefResourceMonitor",
+      "rel": "creates per guard via ConstructMonitor and aggregates its Error"
     },
     {
       "from": "ByteArrayPool",
@@ -2057,7 +2283,7 @@
     },
     {
       "from": "EmptyByteArray",
-      "to": "MultiRefByteArray",
+      "to": "StaticByteArray",
       "rel": "extends"
     },
     {
@@ -2121,6 +2347,16 @@
       "rel": "extends"
     },
     {
+      "from": "MultiRefByteArrayGuard",
+      "to": "IMultiRefByteArray",
+      "rel": "implements"
+    },
+    {
+      "from": "MultiRefByteArrayGuard",
+      "to": "MultiRefResource",
+      "rel": "extends"
+    },
+    {
       "from": "MultiRefByteArraySpan",
       "to": "IMultiRefByteArray",
       "rel": "acquires a reference to source in the ctor"
@@ -2133,7 +2369,7 @@
     {
       "from": "MultiRefByteArraySpan_Ext",
       "to": "IMultiRefByteArray",
-      "rel": "GetSpan returns a MultiRefByteArraySpan over it"
+      "rel": "Span extension returns a MultiRefByteArraySpan over it"
     },
     {
       "from": "MultiRefCollectableResource<TSelf>",
@@ -2143,6 +2379,16 @@
     {
       "from": "MultiRefResource",
       "to": "IMultiRefResource",
+      "rel": "implements"
+    },
+    {
+      "from": "MultiRefResourceMonitor",
+      "to": "IMultiRefResourceMonitor",
+      "rel": "implements"
+    },
+    {
+      "from": "MultiRefResourceVoidMonitor",
+      "to": "IMultiRefResourceMonitor",
       "rel": "implements"
     },
     {
@@ -2216,8 +2462,13 @@
       "rel": "implements with no-op reference counting"
     },
     {
+      "from": "StaticReadOnlyByteArray",
+      "to": "MultiRefResourceVoidMonitor",
+      "rel": "returns from ConstructMonitor"
+    },
+    {
       "from": "VoidByteArray",
-      "to": "MultiRefByteArray",
+      "to": "StaticByteArray",
       "rel": "extends"
     }
   ]
