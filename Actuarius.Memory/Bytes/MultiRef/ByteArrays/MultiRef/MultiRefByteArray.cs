@@ -4,12 +4,22 @@ namespace Actuarius.Memory
 {
     public class MultiRefByteArray : MultiRefResource, IMultiRefByteArray
     {
-        private byte[] _array;
-        private readonly int _offset;
-        private readonly int _count;
-        
-        public MultiRefByteArray(byte[] array, int offset = 0, int count = -1) 
-            : base(false)
+        private byte[] _array = null!;
+        private int _offset;
+        private int _count;
+
+        public MultiRefByteArray(byte[] array, int offset = 0, int count = -1)
+            : this(array, offset, count, revivable: false)
+        {
+        }
+
+        protected MultiRefByteArray(byte[] array, int offset, int count, bool revivable)
+            : base(revivable)
+        {
+            Init(array, offset, count);
+        }
+
+        protected void Init(byte[] array, int offset, int count)
         {
             _array = array;
             _offset = offset;

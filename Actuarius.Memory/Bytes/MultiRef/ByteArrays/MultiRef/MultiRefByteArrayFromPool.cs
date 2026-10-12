@@ -2,20 +2,73 @@
 {
     public class MultiRefByteArrayFromPool : MultiRefByteArray
     {
-        private IPoolSink<byte[]>? _pool;
-        
+        protected IPoolSink<byte[]>? Pool { get; set; }
+
         public MultiRefByteArrayFromPool(IPoolSink<byte[]> pool, byte[] array, int offset, int count)
-            : base(array, offset, count)
+            : this(pool, array, offset, count, revivable: false)
         {
-            _pool = pool;
+        }
+
+        protected MultiRefByteArrayFromPool(
+            IPoolSink<byte[]> pool,
+            byte[] array,
+            int offset,
+            int count,
+            bool revivable)
+            : base(array, offset, count, revivable)
+        {
+            Pool = pool;
+
+            if (revivable)
+            {
+                Revive();
+            }
         }
 
         protected override void OnReleased()
         {
             var array = Array;
             base.OnReleased();
-            _pool?.Release(array);
-            _pool = null;
+            Pool?.Release(array);
+            Pool = null;
+        }
+    }
+
+    public sealed class RecyclableMultiRefByteArrayFromPool : MultiRefByteArrayFromPool
+    {
+        private readonly IPoolSink<RecyclableMultiRefByteArrayFromPool> _wrapperSink;
+
+        public RecyclableMultiRefByteArrayFromPool(
+            IPoolSink<byte[]> pool,
+            byte[] array,
+            int offset,
+            int count,
+            IPoolSink<RecyclableMultiRefByteArrayFromPool> wrapperSink)
+            : base(pool, array, offset, count, revivable: true)
+        {
+            _wrapperSink = wrapperSink;
+        }
+
+        internal bool TryRebind(IPoolSink<byte[]> pool, byte[] array, int offset, int count)
+        {
+            if (!Revive())
+            {
+                return false;
+            }
+
+            Init(array, offset, count);
+            Pool = pool;
+            return true;
+        }
+
+        protected override void OnReleased()
+        {
+            base.OnReleased();
+
+            if (Monitor == null)
+            {
+                _wrapperSink.Release(this);
+            }
         }
     }
 }
