@@ -5,6 +5,8 @@ namespace Actuarius.Memory
     public interface IMemoryRental
     {
         IConcurrentPool<IMultiRefByteArray, int> ByteArraysPool { get; }
+        IConcurrentPool<IMultiRefByteArray, int> SharedByteArraysPool { get; }
+        
         ICollectablePool CollectablePool { get; }
         IGenericConcurrentPool SmallObjectsPool { get; }
         IGenericConcurrentPool BigObjectsPool { get; }
@@ -16,6 +18,7 @@ namespace Actuarius.Memory
         public static readonly IMemoryRental Shared = new MemoryRental();
             
         public IConcurrentPool<IMultiRefByteArray, int> ByteArraysPool { get; }
+        public IConcurrentPool<IMultiRefByteArray, int> SharedByteArraysPool { get; }
         public ICollectablePool CollectablePool { get; }
 
         public IGenericConcurrentPool SmallObjectsPool { get; }
@@ -59,7 +62,10 @@ namespace Actuarius.Memory
 
         public MemoryRental()
         {
-            ByteArraysPool = new ByteArrayConcurrentPool(GetArrayPool<byte>());
+            var bytesPool = GetArrayPool<byte>();
+            ByteArraysPool = new ByteArrayConcurrentPool(bytesPool);
+            SharedByteArraysPool = new ByteArrayConcurrentPool(bytesPool, 1000);
+            
             CollectablePool = new CollectablePool(() => new LimitedConcurrentQueue<ICollectableResource>(100));
 
             SmallObjectsPool = new GenericConcurrentPool(new SynchronizedConcurrentDictionary<int, object>(), 100, 10);

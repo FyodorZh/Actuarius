@@ -5,7 +5,7 @@
     "lang": 9,
     "nullable": true
   },
-  "philosophy": "A memory-management library built around object pooling and reference-counted byte buffers. Pools are modelled as IPool/IPoolSink pairs so callers either release manually or wrap the resource in a PoolableResourceDisposer, and a global MemoryRental.Shared singleton wires standard byte-array, generic-object and collectable pools. Byte arrays use explicit reference counting via MultiRefResource (AddRef/Release) and adapt raw byte[] pools through MultiRefByteArrayFromPool, keeping pooling and sharing two orthogonal concerns; most types live in namespace Actuarius.Memory. Reference-counting diagnostics are opt-in via MultiRefResource.ConstructMonitor, and the *Guard types (MultiRefByteArrayGuard, ByteArrayConcurrentPoolGuard) wrap resources and pools to surface misuse and leaks in tests.",
+  "philosophy": "A memory-management library built around object pooling and reference-counted byte buffers. Pools are modelled as IPool/IPoolSink pairs so callers either release manually or wrap the resource in a PoolableResourceDisposer, and a global MemoryRental.Shared singleton wires standard byte-array, generic-object and collectable pools. Byte arrays use explicit reference counting via MultiRefResource (AddRef/Release) and adapt raw byte[] pools through MultiRefByteArrayFromPool, keeping pooling and sharing two orthogonal concerns; most types live in namespace Actuarius.Memory. ByteArrayPool can optionally recycle its wrapper instances (wrapperCacheCapacity) so warm acquires allocate nothing. Reference-counting diagnostics are opt-in via MultiRefResource.ConstructMonitor, and the *Guard types (MultiRefByteArrayGuard, ByteArrayConcurrentPoolGuard) wrap resources and pools to surface misuse and leaks in tests.",
   "quickPick": [
     {
       "need": "Auto-release a pooled resource at the end of a using block",
@@ -18,6 +18,10 @@
     {
       "need": "Detect use-after-release or double-release on a ref-counted resource",
       "use": "MultiRefResourceMonitor"
+    },
+    {
+      "need": "Eliminate per-acquire wrapper allocation with a recycling byte-array pool",
+      "use": "ByteArrayPool"
     },
     {
       "need": "Get a stable unique int id per closed generic type",
@@ -429,6 +433,10 @@
           "desc": "returns a cached per-type concurrent array pool for T[]; thread-safe: thread-safe (lock); O(1)"
         },
         {
+          "sig": "SharedByteArraysPool:IConcurrentPool<IMultiRefByteArray, int> { get; }",
+          "desc": "returns a concurrent byte-array pool whose wrappers are recycled with capacity 1000; thread-safe: thread-safe (lock)"
+        },
+        {
           "sig": "SmallObjectsPool:IGenericConcurrentPool { get; }",
           "desc": "returns the generic pool tuned for small objects; thread-safe: thread-safe (lock)"
         }
@@ -711,6 +719,11 @@
         {
           "sig": "ctor(IConcurrentPool<byte[], int> bytesPool)",
           "desc": "creates a byte-array pool over the given raw array pool"
+        },
+        {
+          "sig": "ctor(IConcurrentPool<byte[], int> bytesPool, int wrapperCacheCapacity)",
+          "desc": "creates a concurrent byte-array pool over the given raw array pool; when wrapperCacheCapacity is greater than zero released wrappers are kept and revived, making warm acquire allocation-free; values less than or equal to zero disable recycling",
+          "remarks": "recycled wrappers reuse object identity, so a stale reference released twice or released after the resource was re-acquired corrupts the current owner's reference count and can return an in-use byte[] to its raw pool"
         }
       ]
     },
@@ -767,16 +780,22 @@
       "kind": "class",
       "category": "pool",
       "implements": [
-        "IPool<IMultiRefByteArray, int>"
+        "IPool<IMultiRefByteArray, int>",
+        "IPoolSink<RecyclableMultiRefByteArrayFromPool>"
       ],
       "isAuxiliary": false,
-      "desc": "adapts a raw byte[] pool so Acquire returns a reference-counted MultiRefByteArrayFromPool; the wrapped byte[] returns to the raw pool only when the wrapper reference count reaches zero",
+      "desc": "adapts a raw byte[] pool so Acquire returns a reference-counted MultiRefByteArrayFromPool; the wrapped byte[] returns to the raw pool only when the wrapper reference count reaches zero; an optional wrapperCacheCapacity enables wrapper recycling, making warm acquires allocation-free",
       "threadSafety": "not thread-safe",
       "limitations": "Release(IMultiRefByteArray) is a no-op; the resource must be released via its own Release() (ref count) or the raw array is never returned",
       "constructors": [
         {
           "sig": "ctor(IPool<byte[], int> bytesPool)",
           "desc": "creates a byte-array pool over the given raw array pool"
+        },
+        {
+          "sig": "ctor(IPool<byte[], int> bytesPool, int wrapperCacheCapacity)",
+          "desc": "creates a byte-array pool over the given raw array pool; when wrapperCacheCapacity is greater than zero released wrappers are kept and revived, making warm acquire allocation-free; values less than or equal to zero disable recycling",
+          "remarks": "recycled wrappers reuse object identity, so a stale reference released twice or released after the resource was re-acquired corrupts the current owner's reference count and can return an in-use byte[] to its raw pool"
         }
       ],
       "methods": [
@@ -1255,7 +1274,7 @@
         "IMemoryRental"
       ],
       "isAuxiliary": false,
-      "desc": "wires the standard pools: ByteArraysPool over a RawArrayConcurrentPool<byte>, a CollectablePool backed by LimitedConcurrentQueue, and GenericConcurrentPool instances for small (100, 10) and large (10, 2) objects",
+      "desc": "wires the standard pools: ByteArraysPool and SharedByteArraysPool (wrapper recycling capacity 1000, sharing one RawArrayConcurrentPool<byte>), a CollectablePool backed by LimitedConcurrentQueue, and GenericConcurrentPool instances for small (100, 10) and large (10, 2) objects",
       "threadSafety": "thread-safe (lock)",
       "constructors": [
         {
@@ -1280,6 +1299,10 @@
           "sig": "Shared:IMemoryRental { get; }",
           "desc": "returns the process-wide singleton wiring all standard pools",
           "example": "var pools = MemoryRental.Shared;"
+        },
+        {
+          "sig": "SharedByteArraysPool:IConcurrentPool<IMultiRefByteArray, int> { get; }",
+          "desc": "returns a reference-counted byte-array pool with wrapper recycling enabled (capacity 1000), eliminating per-acquire wrapper allocation on warm acquires; thread-safe: thread-safe (lock)"
         },
         {
           "sig": "SmallObjectsPool:IGenericConcurrentPool { get; }",
@@ -1738,6 +1761,14 @@
       ]
     },
     {
+      "name": "RecyclableMultiRefByteArrayFromPool",
+      "kind": "class",
+      "category": "array",
+      "base": "MultiRefByteArrayFromPool",
+      "isAuxiliary": true,
+      "desc": "revivable MultiRefByteArrayFromPool returned by ByteArrayPool.Acquire/AcquireEx when wrapperCacheCapacity is greater than zero; after release it returns itself to the pool's wrapper store for reuse instead of being dropped"
+    },
+    {
       "name": "RefCounter",
       "kind": "class",
       "category": "refcount",
@@ -2118,6 +2149,7 @@
     "Acquire(size) on RawArray pools returns an array of length NextPow2(size), which is larger than requested when size is not a power of two.",
     "AddRef on a RefCounter requires the caller to already hold a reference; it is not a way to acquire a released counter.",
     "ByteArrayConcurrentPoolGuard.Release is a no-op: resources acquired from it must be released via IMultiRefByteArray.Release(), not pool.Release().",
+    "ByteArrayPool recycling (wrapperCacheCapacity > 0) reuses wrapper object identity, so a stale reference released twice or released after the resource was re-acquired corrupts the current owner's reference count and can return an in-use byte[] to the pool.",
     "ByteArrayPool.Release is a no-op: the wrapped byte[] returns to the raw pool only when the MultiRefByteArrayFromPool reference count reaches zero.",
     "ByteSinkToArray.Put writes at index _position (ignoring the offset), while PutMany writes at _position + _offset; prefer PutMany with a non-zero offset.",
     "ByteSinkToManyArrays.Finish publishes only the current block when it is exactly full; a partially-filled trailing block is silently dropped.",
@@ -2135,12 +2167,14 @@
     "RefCounter.Release does not clamp at zero, so repeated releases drive the count negative and each reports FailedToDecrement.",
     "StaticByteArray and StaticReadOnlyByteArray implement the IMultiRef* interfaces but Release and AddRef are no-ops and IsAlive is always true.",
     "The ByteArraysPool from MemoryRental.Shared wraps a RawArrayConcurrentPool<byte>, so Acquire returns arrays of size NextPow2(requested).",
-    "The MemoryRental.Shared array-pool capacity delegate returns 0 for sizes above 1MiB, so very large arrays fall back to per-Acquire allocation."
+    "The MemoryRental.Shared array-pool capacity delegate returns 0 for sizes above 1MiB, so very large arrays fall back to per-Acquire allocation.",
+    "Wrappers with a live monitor (MultiRefResource.ConstructMonitor) are never recycled by ByteArrayPool, so a monitored wrapper is always dropped instead of entering the wrapper store."
   ],
   "commonMistakes": [
     "Calling ByteArrayConcurrentPoolGuard.Release expecting the resource to be released; release the IMultiRefByteArray itself instead.",
     "Calling ByteArrayPool.Release and expecting the raw byte[] to be returned; the wrapper reference count must reach zero instead.",
     "Calling GetSpan on a MultiRefByteArray; the sub-range helper is now the extension method Span, called as source.Span(offset, length).",
+    "Calling Release twice on a resource acquired from a recycling pool (wrapperCacheCapacity > 0), which corrupts the next owner's reference count and can return an in-use byte[] to the pool; only enable recycling when acquires and releases are balanced.",
     "Forgetting to call Release() on an acquired MultiRefByteArray, leaking the pooled byte[] forever.",
     "Holding a MultiRefByteArray past its Release and reading it, which throws NullReferenceException because the backing array is nulled.",
     "Ignoring the bool returned by Put/PutMany/TryPop/TakeMany; failure means the data was not written or read.",
@@ -2163,6 +2197,10 @@
       "code": "var (arr, sink) = MemoryRental.Shared.ByteArraysPool.AcquireEx(512); try { arr[0] = 42; } finally { arr.Release(); }"
     },
     {
+      "goal": "Acquire from the shared recycling byte-array pool without per-acquire allocation",
+      "code": "var a = MemoryRental.Shared.SharedByteArraysPool.Acquire(512); try { a[0] = 42; } finally { a.Release(); }"
+    },
+    {
       "goal": "Create a high-performance concurrent object pool with BufferedPool",
       "code": "var pool = new BufferedPool<MyObject>(bucketSize: 100, distributionLevel: 10, () => new MyObject()); MyObject o = pool.Acquire(); pool.Release(o);"
     },
@@ -2177,6 +2215,10 @@
     {
       "goal": "Drain a byte source gracefully until TryPop returns false",
       "code": "var src = new ByteSourceFromArray(new StaticByteArray(new byte[] { 1, 2, 3 })); byte acc = 0; while (src.TryPop(out byte b)) { acc += b; }"
+    },
+    {
+      "goal": "Enable wrapper recycling on a custom concurrent byte-array pool",
+      "code": "var pool = new ByteArrayConcurrentPool(MemoryRental.Shared.GetArrayPool<byte>(), wrapperCacheCapacity: 256); var a = pool.Acquire(128); a[0] = 1; a.Release();"
     },
     {
       "goal": "Pool arrays by size with a custom capacity delegate that disables pooling for large sizes",
@@ -2240,6 +2282,11 @@
       "from": "ByteArrayPool",
       "to": "MultiRefByteArrayFromPool",
       "rel": "creates in Acquire/AcquireEx wrapping a pooled raw byte[]"
+    },
+    {
+      "from": "ByteArrayPool",
+      "to": "RecyclableMultiRefByteArrayFromPool",
+      "rel": "creates in Acquire/AcquireEx when wrapperCacheCapacity is greater than zero"
     },
     {
       "from": "ByteSinkToManyArrays<TArray>",
@@ -2314,7 +2361,7 @@
     {
       "from": "MemoryRental",
       "to": "ByteArrayConcurrentPool",
-      "rel": "creates in ctor as ByteArraysPool"
+      "rel": "creates in ctor as ByteArraysPool and SharedByteArraysPool"
     },
     {
       "from": "MemoryRental",
@@ -2429,6 +2476,16 @@
     {
       "from": "RawArrayPool<T>",
       "to": "Pool<T[], int>",
+      "rel": "extends"
+    },
+    {
+      "from": "RecyclableMultiRefByteArrayFromPool",
+      "to": "ByteArrayPool",
+      "rel": "returns itself via the wrapper sink in OnReleased"
+    },
+    {
+      "from": "RecyclableMultiRefByteArrayFromPool",
+      "to": "MultiRefByteArrayFromPool",
       "rel": "extends"
     },
     {
